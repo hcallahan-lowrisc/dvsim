@@ -115,7 +115,7 @@
           ]
         );
     in {
-      packages.default = pythonSet.mkVirtualEnv "dvsim-env" workspace.deps.default;
+      packages.default = pythonSet.mkVirtualEnv "dvsim-env" workspace.deps.all;
 
       # Make dvsim runnable with `nix run`
       apps = {
