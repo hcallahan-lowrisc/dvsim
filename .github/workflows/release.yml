@@ -86,7 +86,10 @@ jobs:
       - name: Setup | Checkout Repository at newly tagged release
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.release.outputs.tag }}
+          # Can't checkout at the new tag, we need to match one of the configured
+          # semantic_release.branches for the publish-action to proceed.
+          # > Detached HEAD state cannot match any release groups; no release will be made
+          ref: ${{ github.ref_name }}
 
       - name: Setup | Install uv
         uses: astral-sh/setup-uv@v6
