@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.2 (2025-10-12)
+
+### Bug Fixes
+
+- Fixup an inconsistency with that pesky print again...
+  ([`afb13dc`](https://github.com/hcallahan-lowrisc/dvsim/commit/afb13dcef5ee05116550fe3d4ff577a6c5883899))
+
+
 ## v1.0.1 (2025-10-12)
 
 ### Bug Fixes
