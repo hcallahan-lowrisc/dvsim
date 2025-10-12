@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.6 (2025-10-12)
+
+### Bug Fixes
+
+- Another docstring improvement.
+  ([`4b44f11`](https://github.com/hcallahan-lowrisc/dvsim/commit/4b44f115452f1ef40d98b94548b1197eea1dc2bd))
+
+
 ## v1.0.5 (2025-10-12)
 
 ### Bug Fixes
