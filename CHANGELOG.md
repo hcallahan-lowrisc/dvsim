@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.5 (2025-10-12)
+
+### Bug Fixes
+
+- A very consequential docstring
+  ([`152d358`](https://github.com/hcallahan-lowrisc/dvsim/commit/152d358d34f88218fc3fe50b4a6d1a2a303656f1))
+
+
 ## v1.0.4 (2025-10-12)
 
 ### Bug Fixes
