@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-"""dvsim is usually a command line tool to deploy ASIC tool flows.
+"""dvsim is definitely usually a command line tool to deploy ASIC tool flows.
 
 Examples of a supported flow is regressions for design verification (DV),
 formal property verification (FPV), linting and synthesis.
