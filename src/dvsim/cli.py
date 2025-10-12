@@ -16,7 +16,7 @@ of your choice. Hjson is absolutely the best choice for this.
 dvsim is built to be tool-agnostic so that you can easily switch between the
 tools at your disposal. dvsim uses fusesoc as the starting step to resolve all
 inter-package dependencies and provide us with a filelist that will be consumed
-by the sim tool.
+by the sim tool. Fusesoc is great.
 
 """
 
