@@ -53,7 +53,7 @@ jobs:
           # First time round, just determine the new version and increment the pyproject.toml accordingly.
           # Then, we can re-lock uv.lock with the new version, and leave the change staged
           uv run semantic-release version --skip-build --no-changelog --no-commit --no-tag --no-push --no-vcs-release
-          uv lock --upgrade-package 'dvsim-test'
+          uv lock --upgrade-package 'dvsim_test'
           git add uv.lock
           # The second invocation generates all other release metadata, and wraps up the lockfile change
           # into the single tagged release commit
@@ -93,7 +93,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: test.pypi
-      url: https://test.pypi.org/p/dvsim-test
+      url: https://test.pypi.org/p/dvsim_test
     permissions:
       # IMPORTANT: this permission is mandatory for Trusted Publishing
       id-token: write

@@ -303,7 +303,7 @@ wheels = [
 ]
 
 [[package]]
-name = "dvsim"
+name = "dvsim-test"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
@@ -368,9 +368,9 @@ typing = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.1.7" },
-    { name = "dvsim", extras = ["linting", "typing", "test"], marker = "extra == 'ci'" },
-    { name = "dvsim", extras = ["linting", "typing", "test", "debug"], marker = "extra == 'dev'" },
-    { name = "dvsim", extras = ["typing", "test", "debug"], marker = "extra == 'nix'" },
+    { name = "dvsim-test", extras = ["linting", "typing", "test"], marker = "extra == 'ci'" },
+    { name = "dvsim-test", extras = ["linting", "typing", "test", "debug"], marker = "extra == 'dev'" },
+    { name = "dvsim-test", extras = ["typing", "test", "debug"], marker = "extra == 'nix'" },
     { name = "enlighten", specifier = ">=1.12.4" },
     { name = "gitpython", marker = "extra == 'ci'" },
     { name = "gitpython", marker = "extra == 'nix'" },

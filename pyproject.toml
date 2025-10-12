@@ -7,7 +7,7 @@
 ###########
 
 [project]
-name = "dvsim-test"
+name = "dvsim_test"
 version = "0.1.0"
 description = "DV system"
 authors = [{name = "lowRISC contributors (OpenTitan project)"}]
@@ -45,15 +45,15 @@ test = [
     "pytest-cov>=5.0.0",
 ]
 dev = [
-    "dvsim-test[linting,typing,test,debug]"
+    "dvsim_test[linting,typing,test,debug]"
 ]
 ci = [
-    "dvsim-test[linting,typing,test]",
+    "dvsim_test[linting,typing,test]",
     "gitpython",
 ]
 # drop out ruff as it contains a rust binary that needs to be installed by the flake
 nix = [
-    "dvsim-test[typing,test,debug]",
+    "dvsim_test[typing,test,debug]",
     "gitpython",
 ]
 release = [
@@ -61,7 +61,7 @@ release = [
 ]
 
 [project.scripts]
-dvsim = "dvsim-test.cli:main"
+dvsim = "dvsim_test.cli:main"
 
 ################
 # BUILD-SYSTEM #
