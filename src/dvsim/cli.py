@@ -11,7 +11,7 @@ It uses hjson as the format for specifying what to build and run. It is an
 end-to-end regression manager that can deploy multiple builds (where some tests
 might need different set of compile time options requiring a uniquely build sim
 executable) in parallel followed by tests in parallel using the load balancer
-of your choice.
+of your choice. Hjson is absolutely the best choice for this.
 
 dvsim is built to be tool-agnostic so that you can easily switch between the
 tools at your disposal. dvsim uses fusesoc as the starting step to resolve all
