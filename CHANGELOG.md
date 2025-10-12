@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.4 (2025-10-12)
+
+### Bug Fixes
+
+- Still improving the docs
+  ([`3e0db4e`](https://github.com/hcallahan-lowrisc/dvsim/commit/3e0db4ee77b56d13fa6d32c18134e0bb59b97988))
+
+
 ## v1.0.3 (2025-10-12)
 
 ### Bug Fixes
