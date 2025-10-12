@@ -3,7 +3,7 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Check all files for license header."""
+"""Check files for license header."""
 
 import subprocess
 import sys
