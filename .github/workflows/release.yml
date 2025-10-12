@@ -68,6 +68,14 @@ jobs:
           # into the single tagged release commit
           uv run semantic-release version --skip-build
 
+      - name: Release | Print if not required
+        if: ${{ steps.version_release.outputs.released == 'false' }}
+        run: |
+          echo "### Release Summary - dvsim" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "New release not required as per commits since last release. :ok:" >> $GITHUB_STEP_SUMMARY
+          # TODO - Add hyperlinks to project documentation for users who were expecting a new release now...
+
     # Forward some outputs from 'semantic-release version' so that subsequent jobs
     # can be conditionally run only if a new released has actually been generated.
     outputs:
@@ -121,6 +129,12 @@ jobs:
           name: distribution-artifacts
           path: dist
           if-no-files-found: error
+
+      - name: Release | Print to summary
+        run: |
+          echo "### Release Summary - dvsim" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "New release ${{ needs.release.outputs.tag }} cut and deployed. :airplane:" >> $GITHUB_STEP_SUMMARY
 
   ###################
   # DEPLOYMENT JOBS #
