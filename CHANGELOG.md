@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.3 (2025-10-12)
+
+### Bug Fixes
+
+- More documentation tweaks for clarity to test a patch release
+  ([`86b5bbb`](https://github.com/hcallahan-lowrisc/dvsim/commit/86b5bbbe601fd4fa189f0072e3271ec104cc395e))
+
+
 ## v1.0.2 (2025-10-12)
 
 ### Bug Fixes
