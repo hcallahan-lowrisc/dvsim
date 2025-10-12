@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.1 (2025-10-12)
+
+### Bug Fixes
+
+- Tweak print message
+  ([`9539bff`](https://github.com/hcallahan-lowrisc/dvsim/commit/9539bff97c06a560648231d89949a9d7afa58e46))
+
+
 ## v1.0.0 (2025-10-12)
 
 ### Bug Fixes
