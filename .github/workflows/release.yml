@@ -5,6 +5,15 @@
 name: Create a dvsim release
 on:
   push:
+    branches:
+      # Branch-protected, only reviewed pull-requests push to master
+      - "master"
+      # [DEV] Pushes to the following branch during action-development only
+      - "semantic-release-dev"
+  pull_request:
+    types:
+      # Run at the point pull_requests are closed, but only if pull_request.merged == true.
+      - closed
 
 permissions:
   contents: read
@@ -15,16 +24,21 @@ permissions:
 jobs:
   release:
     name: Tag a new semantic-release, upload src+dist assets as GitHub release
+    # [DEV] Any on-event to the 'semantic-release-dev' ref is accepted during action-development only
+    if: ${{ github.event.pull_request.merged == true || github.ref == 'refs/heads/semantic-release-dev' }}
     runs-on: ubuntu-latest
     permissions:
       # Push release commit / tag, upload github release artifacts
       contents: write
-
     # The concurrency directive is used on the job to prevent race conditions of more than one release job
     # in the case if there are multiple pushes to main in a short period of time.
     concurrency:
       group: ${{ github.workflow }}-release-${{ github.ref_name }}
       cancel-in-progress: false
+    outputs:
+      # Forward the 'released' output from 'semantic-release version' so that subsequent jobs
+      # can be conditionally run only if a new released has actually been generated.
+      released: ${{ steps.version_release.outputs.released }}
 
     steps:
 
@@ -61,6 +75,8 @@ jobs:
 
       # Build the newly-versioned release distribution
       - name: Release | Build the release
+        # If a new release is not required, we are done.
+        if: ${{ steps.version_release.outputs.released == 'true' }}
         id: build_release
         run: |
           uv build
@@ -88,8 +104,8 @@ jobs:
 
   test-pypi-publish:
     name: Upload release to test.pypi
-    # if: startsWith(github.ref, 'refs/tags/')  # only publish to test.PyPI on tag pushes
     needs: release
+    if: ${{ needs.release.outputs.released == 'true' }}
     runs-on: ubuntu-latest
     environment:
       name: test.pypi
