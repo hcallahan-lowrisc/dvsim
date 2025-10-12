@@ -90,6 +90,8 @@ jobs:
           # semantic_release.branches for the publish-action to proceed.
           # > Detached HEAD state cannot match any release groups; no release will be made
           ref: ${{ github.ref_name }}
+          # Also need the tags for the publish step to work
+          fetch-tags: true
 
       - name: Setup | Install uv
         uses: astral-sh/setup-uv@v6
