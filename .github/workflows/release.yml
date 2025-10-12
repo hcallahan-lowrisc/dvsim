@@ -27,7 +27,7 @@ jobs:
     if: ${{ github.event.pull_request.merged == true || github.ref == 'refs/heads/semantic-release-dev' }}
     runs-on: ubuntu-latest
     permissions:
-      # Push release commit / tag, upload github release artifacts
+      # Push release commit / tag
       contents: write
     # The concurrency directive is used on the job to prevent race conditions of more than one release job
     # in the case if there are multiple pushes to main in a short period of time.
@@ -80,6 +80,9 @@ jobs:
     needs: release
     if: ${{ needs.release.outputs.released == 'true' }}
     runs-on: ubuntu-latest
+    permissions:
+      # Upload github release artifacts
+      contents: write
 
     steps:
 
