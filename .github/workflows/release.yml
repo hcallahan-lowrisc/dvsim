@@ -51,8 +51,6 @@ jobs:
           ref: ${{ github.ref_name }}
           # Full-depth needed for semantic-release to determine version and changelog
           fetch-depth: 0
-          # Make sure the value of GITHUB_TOKEN will not be persisted in repo's config
-          persist-credentials: false
 
       - name: Setup | Install uv
         uses: astral-sh/setup-uv@v6
