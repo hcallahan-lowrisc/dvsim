@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.52.1 (2026-09-03)
+
+### Bug Fixes
+
+- Strip credentials from the recorded git origin url
+  ([`e30301a`](https://github.com/lowRISC/dvsim/commit/e30301ae755a485394d9962dd60dd87a8dc5cd2a))
+
+
 ## v1.52.0 (2026-08-25)
 
 ### Features
