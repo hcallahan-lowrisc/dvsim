@@ -215,6 +215,10 @@ Keeping the scheduler and the launcher semantically separate enables us to suppo
 
 The flow manager object indicates to the scheduler how many jobs can run in parallel, how often to poll, and how many jobs to poll in a single round.
 These settings are also tunable via the command-line.
+Each job also needs some resources, such as tool licences, and `--resource NAME=COUNT` caps how many of a resource the running jobs may hold at once.
+A job needs one of its tool by default.
+Build modes, run modes and tests can ask for more with `resources: {NAME: COUNT}`: a build mode's resources apply to its build only, its `run_resources` to every test run on it (e.g. a VIP licence that only the simulation checks out), and a test also needs those of the run modes it enables.
+Where two of these name the same resource, the job needs the larger count.
 The scheduler starts executing jobs starting at the root of the dependency tree (typically, builds) of deployable objects it was provided with.
 At each dependency level, **it dispatches jobs in the same order** as determined by the flow manager object.
 If the dispatch slots are full, the remaining jobs are put on hold (queued).
