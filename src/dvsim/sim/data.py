@@ -41,6 +41,13 @@ class TestResult(BaseModel):
     percent: float
     """Percentage test pass rate."""
 
+    xfailed: int = 0
+    """Number of runs that failed, as expected (XFAIL). Not counted as passed."""
+    xpassed: int = 0
+    """Number of runs that passed, but were expected to fail (XPASS). Counted as failures."""
+    xfail: str | None = None
+    """Why the test is expected to fail, or None if it is expected to pass."""
+
 
 class Testpoint(BaseModel):
     """Testpoint."""
@@ -57,6 +64,11 @@ class Testpoint(BaseModel):
     percent: float
     """Percentage test pass rate."""
 
+    xfailed: int = 0
+    """Number of runs that failed, as expected (XFAIL). Not counted as passed."""
+    xpassed: int = 0
+    """Number of runs that passed, but were expected to fail (XPASS). Counted as failures."""
+
 
 class TestStage(BaseModel):
     """Test stages."""
@@ -72,6 +84,11 @@ class TestStage(BaseModel):
     """Total number of tests run."""
     percent: float
     """Percentage test pass rate."""
+
+    xfailed: int = 0
+    """Number of runs that failed, as expected (XFAIL). Not counted as passed."""
+    xpassed: int = 0
+    """Number of runs that passed, but were expected to fail (XPASS). Counted as failures."""
 
 
 class CodeCoverageMetrics(BaseModel):
@@ -210,6 +227,14 @@ class SimFlowResults(BaseModel):
     extensions: tuple[CfgExtensionMeta, ...] = ()
     """The cfg extensions (--cfg-extend) named for this flow."""
 
+    xfailed: int = 0
+    """Number of runs that failed, as expected (XFAIL). Not counted as passed."""
+    xpassed: int = 0
+    """Number of runs that passed, but were expected to fail (XPASS). Counted as failures."""
+
+    xfailed_jobs: BucketedFailures = BucketedFailures(buckets={})
+    """Bucketed overview of the expected failures (XFAIL)."""
+
     def summary(self) -> "SimFlowSummary":
         """Load results from JSON file.
 
@@ -252,6 +277,11 @@ class SimFlowSummary(BaseModel):
 
     extensions: tuple[CfgExtensionMeta, ...] = ()
     """The cfg extensions (--cfg-extend) named for this flow."""
+
+    xfailed: int = 0
+    """Number of runs that failed, as expected (XFAIL). Not counted as passed."""
+    xpassed: int = 0
+    """Number of runs that passed, but were expected to fail (XPASS). Counted as failures."""
 
     @staticmethod
     def load(path: Path) -> "SimFlowSummary":

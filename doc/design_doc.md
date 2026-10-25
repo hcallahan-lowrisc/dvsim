@@ -237,6 +237,18 @@ If the job failed or got killed, the corresponding error message is also recorde
 
 When all jobs are done, the flow manager object starts constructing the final report, capturing all the relevant information to depict the overall status of the invocation.
 In case of simulations, it also bucketizes the list of failures by similarity of error signatures.
+A test can be marked as expected to fail, giving the reason:
+
+```hjson
+tests: [
+  {name: "foo_smoke", xfail: "foo doesn't support bar yet (issue #123)"}
+]
+```
+
+A run of such a test that fails is reported as XFAIL: it has its own buckets and counts, stays outside the total that the pass rate divides by, and doesn't fail the invocation.
+A run that passes is reported as XPASS and counts as a failure (strict), so the list of expected failures stays current.
+Neither counts as passed.
+A run that times out, can't be launched, or is cancelled by the scheduler is a failure as usual, not an XFAIL.
 A version of the generated report (in Markdown format) is logged to the console.
 A slightly longer version of the generated report is written to an HTML file.
 The HTML report is optionally published to the report server.

@@ -125,11 +125,20 @@
                                     </div>
                                 </a>
                             </td>
-                            <td>{{ flow.passed }}</td>
+                            <td>
+                                {{ flow.passed }}
+                                {% if flow.xfailed %}
+                                <span class="badge text-bg-secondary">{{ flow.xfailed }} xfail</span>
+                                {% endif %}
+                            </td>
                             <td>{{ flow.total }}</td>
+                            {% if flow.total %}
                             <td class="c{{ (flow.percent / 10)|int }}">
                                 {{ "%.2f" | format(flow.percent) }}
                             </td>
+                            {% else %}
+                            <td>--</td>
+                            {% endif %}
                             {% set cov = flow.coverage %}
                             {{ coverage_cell(cov, "average") }}
 

@@ -15,7 +15,7 @@ from dvsim.job.status import JobStatus
 from dvsim.testplan import Result
 
 if TYPE_CHECKING:
-    from dvsim.job.data import CompletedJobStatus
+    from dvsim.job.data import CompletedJobStatus, JobStatusInfo
 
 __all__ = ()
 
@@ -90,6 +90,23 @@ def _bucketize(fail_msg: str) -> str:
     return bucket
 
 
+def is_xfail(job_status: "CompletedJobStatus") -> bool:
+    """Whether a job that is expected to fail failed (XFAIL).
+
+    Only a job that ran and failed counts. A killed job (a timeout, or a job that could not be
+    launched) and a job the scheduler cancelled are failures, so that a hang or a broken
+    environment doesn't pass for the expected failure.
+    """
+    if job_status.xfail is None or job_status.status != JobStatus.FAILED:
+        return False
+    return job_status.fail_msg is None or not job_status.fail_msg.cancelled
+
+
+def is_xpass(job_status: "CompletedJobStatus") -> bool:
+    """Whether a job that is expected to fail passed (XPASS), which counts as a failure."""
+    return job_status.xfail is not None and job_status.status == JobStatus.PASSED
+
+
 class JobFailureOverview(BaseModel):
     """Overview of the Job failure."""
 
@@ -127,37 +144,50 @@ class BucketedFailures(BaseModel):
     """Mapping of common error message strings to the full job failure summary."""
 
     @staticmethod
-    def from_job_status(results: Sequence["CompletedJobStatus"]) -> "BucketedFailures":
-        """Construct from CompletedJobStatus objects."""
+    def from_job_status(
+        results: Sequence["CompletedJobStatus"], *, expected: bool = False
+    ) -> "BucketedFailures":
+        """Construct from CompletedJobStatus objects.
+
+        By default, bucket the unexpected failures: failed or killed jobs that aren't
+        expected to fail, and runs of xfail tests that passed (XPASS). With expected=True,
+        bucket the expected failures (XFAIL) instead.
+        """
         buckets = {}
 
+        def add(
+            bucket: str, job_status: "CompletedJobStatus", info: "JobStatusInfo | None"
+        ) -> None:
+            # TODO: expose all relevant line numbers through the bucket, not just the first.
+            # We only expose the first one for now to keep changes to the scheduler minimal.
+            first_line_num = None
+            if info is not None and info.lines:
+                lines = info.lines[0]
+                first_line_num = lines if isinstance(lines, int) else lines[0]
+
+            buckets.setdefault(bucket, []).append(
+                JobFailureOverview(
+                    name=job_status.name,
+                    qual_name=job_status.qual_name,
+                    seed=job_status.seed,
+                    line=first_line_num,
+                    log_path=job_status.log_path,
+                    log_context=(info.context or []) if info is not None else [],
+                ),
+            )
+
         for job_status in results:
-            if job_status.status in (JobStatus.FAILED, JobStatus.KILLED):
-                if job_status.fail_msg is None:
-                    continue
+            if is_xpass(job_status):
+                if not expected:
+                    add(f"Passed, but expected to fail: {job_status.xfail}", job_status, None)
+                continue
 
-                bucket = _bucketize(job_status.fail_msg.message)
+            if job_status.status not in (JobStatus.FAILED, JobStatus.KILLED):
+                continue
+            if job_status.fail_msg is None or is_xfail(job_status) != expected:
+                continue
 
-                if bucket not in buckets:
-                    buckets[bucket] = []
-
-                # TODO: expose all relevant line numbers through the bucket, not just the first.
-                # We only expose the first one for now to keep changes to the scheduler minimal.
-                first_line_num = None
-                if job_status.fail_msg.lines:
-                    lines = job_status.fail_msg.lines[0]
-                    first_line_num = lines if isinstance(lines, int) else lines[0]
-
-                buckets[bucket].append(
-                    JobFailureOverview(
-                        name=job_status.name,
-                        qual_name=job_status.qual_name,
-                        seed=job_status.seed,
-                        line=first_line_num,
-                        log_path=job_status.log_path,
-                        log_context=job_status.fail_msg.context or [],
-                    ),
-                )
+            add(_bucketize(job_status.fail_msg.message), job_status, job_status.fail_msg)
 
         return BucketedFailures(
             buckets=buckets,
@@ -206,6 +236,14 @@ class SimResults:
             row.job_runtime = job_status.job_runtime
             row.simulated_time = job_status.simulated_time
 
-        if job_status.status == JobStatus.PASSED:
+        if job_status.xfail is not None:
+            row.xfail = job_status.xfail
+        if is_xpass(job_status):
+            row.xpassed += 1
+        elif is_xfail(job_status):
+            # An expected failure counts in neither passing nor total.
+            row.xfailed += 1
+            return
+        elif job_status.status == JobStatus.PASSED:
             row.passing += 1
         row.total += 1

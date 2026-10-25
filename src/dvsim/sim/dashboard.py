@@ -170,7 +170,7 @@ def gen_badges(
 
         _badge_write_percent(
             label="Tests Passing",
-            value=100 * results.passed / results.total,
+            value=100 * results.passed / results.total if results.total else 0.0,
             path=block_base / "passing.svg",
         )
 

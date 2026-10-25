@@ -9,7 +9,7 @@ import fnmatch
 import random
 import sys
 from collections import OrderedDict, defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
@@ -56,6 +56,15 @@ __all__ = ("SimCfg",)
 # This affects the bucketizer failure report.
 _MAX_UNIQUE_TESTS = 5
 _MAX_TEST_RESEEDS = 2
+
+
+def _xfail_counts(results: Iterable[TestResult]) -> dict[str, int]:
+    """Sum the XFAIL and XPASS counts of some test results."""
+    results = list(results)
+    return {
+        "xfailed": sum(r.xfailed for r in results),
+        "xpassed": sum(r.xpassed for r in results),
+    }
 
 
 class SimCfg(FlowCfg):
@@ -789,7 +798,7 @@ class SimCfg(FlowCfg):
         all_trs: defaultdict[str, TestResult] = {}
 
         def make_test_result(tr) -> TestResult | None:
-            if tr.total == 0 and not self.map_full_testplan:
+            if tr.runs == 0 and not self.map_full_testplan:
                 return None
 
             return TestResult(
@@ -798,6 +807,9 @@ class SimCfg(FlowCfg):
                 passed=tr.passing,
                 total=tr.total,
                 percent=100.0 * tr.passing / (tr.total or 1),
+                xfailed=tr.xfailed,
+                xpassed=tr.xpassed,
+                xfail=tr.xfail,
             )
 
         # 1. Mapped testpoints — only include if at least one test ran
@@ -823,6 +835,7 @@ class SimCfg(FlowCfg):
                 passed=tp_passed,
                 total=tp_total,
                 percent=100.0 * tp_passed / tp_total if tp_total else 0.0,
+                **_xfail_counts(test_results.values()),
             )
 
             for name, tr in test_results.items():
@@ -843,6 +856,7 @@ class SimCfg(FlowCfg):
                 passed=tp_passed,
                 total=tp_total,
                 percent=100.0 * tp_passed / tp_total if tp_total else 0.0,
+                **_xfail_counts(unmapped_tests.values()),
             )
 
             for name, tr in unmapped_tests.items():
@@ -861,6 +875,7 @@ class SimCfg(FlowCfg):
                 passed=stage_passed,
                 total=stage_total,
                 percent=100.0 * stage_passed / stage_total if stage_total else 0.0,
+                **_xfail_counts(stage_to_trs[stage_name].values()),
             )
 
         total_passed = sum(tr.passed for tr in all_trs.values())
@@ -893,6 +908,7 @@ class SimCfg(FlowCfg):
             vplan_coverage = self.cov_vplan_deploy.vplan_coverage
 
         failures = BucketedFailures.from_job_status(results=run_results)
+        expected_failures = BucketedFailures.from_job_status(results=run_results, expected=True)
         if failures.buckets:
             self.errors_seen = True
 
@@ -926,6 +942,8 @@ class SimCfg(FlowCfg):
             total=total_runs,
             percent=100.0 * total_passed / total_runs if total_runs else 0.0,
             extensions=tuple(extensions),
+            **_xfail_counts(all_trs.values()),
+            xfailed_jobs=expected_failures,
         )
 
     def _fake_policy(self, job: JobSpec) -> JobStatus:

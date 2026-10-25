@@ -33,8 +33,8 @@ class Result:
 
           passing: The number of runs that passed (possibly different seeds).
 
-          total: The number of runs that happened (will be at least as large as
-          passing).
+          total: The number of runs that happened, apart from XFAIL runs (will be at
+          least as large as passing).
 
           job_runtime_s: If not None, the number of seconds taken by the job.
 
@@ -47,6 +47,18 @@ class Result:
         self.job_runtime = job_runtime_s
         self.simulated_time = simulated_time_us
         self.mapped = False
+
+        # For a test that is expected to fail: the reason, and how many of its runs failed
+        # (XFAIL) or passed (XPASS). Neither kind counts in passing, and XFAIL runs don't
+        # count in total either.
+        self.xfail: str | None = None
+        self.xfailed = 0
+        self.xpassed = 0
+
+    @property
+    def runs(self) -> int:
+        """The number of runs that happened, XFAIL runs included."""
+        return self.total + self.xfailed
 
 
 class Element:
@@ -661,8 +673,8 @@ class Testplan:
                 tests_seen.add(tr.name)
                 # Compute the testplan progress.
                 self.progress[ms]["total"] += 1
-                if tr.total != 0:
-                    if tr.passing == tr.total:
+                if tr.runs != 0:
+                    if tr.total != 0 and tr.passing == tr.total:
                         self.progress[ms]["passing"] += 1
                     self.progress[ms]["written"] += 1
 
@@ -774,7 +786,7 @@ class Testplan:
             stage = "" if tp.stage == "N.A." else tp.stage
             tp_name = "" if tp.name == "N.A." else tp.name
             for tr in tp.test_results:
-                if tr.total == 0 and not map_full_testplan:
+                if tr.runs == 0 and not map_full_testplan:
                     continue
                 pass_rate = self._get_percentage(tr.passing, tr.total)
 

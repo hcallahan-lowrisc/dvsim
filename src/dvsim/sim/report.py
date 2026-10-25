@@ -16,6 +16,7 @@ from dvsim.logging import log
 from dvsim.report.artifacts import ReportArtifacts, display_report, render_static_content
 from dvsim.report.data import CfgExtensionMeta, IPMeta
 from dvsim.sim.data import SimFlowResults, SimResultsSummary
+from dvsim.sim_results import BucketedFailures
 from dvsim.templates.render import render_template
 from dvsim.utils import TS_FORMAT_LONG
 from dvsim.utils.fs import relative_to
@@ -33,6 +34,14 @@ def _plural(item: str, n: int | Collection[Any], suffix: str = "s") -> str:
     if not isinstance(n, int):
         n = len(n)
     return item if n == 1 else item + suffix
+
+
+def _xfail_cell(xfailed: int, xpassed: int) -> str:
+    """Describe the XFAIL and XPASS runs of a test or group, for a table cell."""
+    cell = str(xfailed) if xfailed else ""
+    if xpassed:
+        cell += f" ({xpassed} XPASS)"
+    return cell.strip()
 
 
 def _indent_by_levels(lines: Iterable[tuple[int, str]], indent_spaces: int = 4) -> str:
@@ -114,11 +123,17 @@ class HtmlReportRenderer:
             sorted_buckets = dict(
                 sorted(results.failed_jobs.buckets.items(), key=lambda kv: len(kv[1]), reverse=True)
             )
+            sorted_xfail_buckets = dict(
+                sorted(
+                    results.xfailed_jobs.buckets.items(), key=lambda kv: len(kv[1]), reverse=True
+                )
+            )
             artifacts[block_file] = render_template(
                 path="reports/block_report.html",
                 data={
                     "results": results,
                     "failed_jobs": sorted_buckets,
+                    "xfailed_jobs": sorted_xfail_buckets,
                     "version": summary.version,
                 },
             )
@@ -272,7 +287,11 @@ class MarkdownReportRenderer:
 
     def render_block_results(self, results: SimFlowResults) -> str:
         """Generate a Markdown string covering the results, coverage and failure buckets."""
-        report_md = self.render_result_table(results) if results.total else "No results to display."
+        report_md = (
+            self.render_result_table(results)
+            if results.total or results.xfailed
+            else "No results to display."
+        )
 
         # TODO: need to optionally generate a progress table if `--map-full-testplan` was set.
         # This can be passed through and set when instantiating the markdown renderer, but
@@ -285,7 +304,14 @@ class MarkdownReportRenderer:
                 report_md += "\n\n" + coverage_table
 
         if results.failed_jobs.buckets:
-            bucket_summary = self.render_bucket_summary(results)
+            bucket_summary = self.render_bucket_summary(results.failed_jobs)
+            if bucket_summary:
+                report_md += "\n\n" + bucket_summary
+
+        if results.xfailed_jobs.buckets:
+            bucket_summary = self.render_bucket_summary(
+                results.xfailed_jobs, title="Expected Failures", noun="expected failure"
+            )
             if bucket_summary:
                 report_md += "\n\n" + bucket_summary
 
@@ -303,6 +329,14 @@ class MarkdownReportRenderer:
             ("Total", "center"),
             ("Pass Rate", "center"),
         ]
+        show_xfail = any(
+            t.xfail
+            for stage in results.stages.values()
+            for tp in stage.testpoints.values()
+            for t in tp.tests.values()
+        )
+        if show_xfail:
+            column_info.append(("XFail", "center"))
         table = []
         hidden_names = ("n.a.", "unmapped")
 
@@ -327,19 +361,23 @@ class MarkdownReportRenderer:
                         result.total,
                         pass_rate,
                     ]
+                    if show_xfail:
+                        row.append(_xfail_cell(result.xfailed, result.xpassed))
                     table.append(row)
 
             pass_rate = "-- %" if stage.total == 0 else f"{stage.percent:.2f} %"
             # TODO: note the calculated stage totals are currently not correct.
-            table.append(
-                [stage_name, None, "**TOTAL**", None, None, stage.passed, stage.total, pass_rate]
-            )
+            row = [stage_name, None, "**TOTAL**", None, None, stage.passed, stage.total, pass_rate]
+            if show_xfail:
+                row.append(_xfail_cell(stage.xfailed, stage.xpassed))
+            table.append(row)
 
         # TODO: note the calculated overall totals are currently not correct.
         pass_rate = "-- %" if results.total == 0 else f"{results.percent:.2f} %"
-        table.append(
-            [None, None, "**TOTAL**", None, None, results.passed, results.total, pass_rate]
-        )
+        row = [None, None, "**TOTAL**", None, None, results.passed, results.total, pass_rate]
+        if show_xfail:
+            row.append(_xfail_cell(results.xfailed, results.xpassed))
+        table.append(row)
 
         if not table:
             return ""
@@ -379,16 +417,21 @@ class MarkdownReportRenderer:
 
         return report_md
 
-    def render_bucket_summary(self, results: SimFlowResults) -> str:
+    def render_bucket_summary(
+        self,
+        failures: BucketedFailures,
+        title: str = "Failure Buckets",
+        noun: str = "failure",
+    ) -> str:
         """Generate a Markdown string with a summary of the buckets (failures/killed)."""
-        lines = [(0, "## Failure Buckets")]
+        lines = [(0, f"## {title}")]
 
         for bucket, tests in sorted(
-            results.failed_jobs.buckets.items(),
+            failures.buckets.items(),
             key=lambda kv: len(kv[1]),
             reverse=True,
         ):
-            lines.append((0, f"* `{bucket}` has {len(tests)} {_plural('failure', tests)}:"))
+            lines.append((0, f"* `{bucket}` has {len(tests)} {_plural(noun, tests)}:"))
 
             grouped_tests = defaultdict(list)
             for job in tests:
@@ -396,9 +439,7 @@ class MarkdownReportRenderer:
 
             displayed = list(grouped_tests.items())[: self.MAX_TESTS_PER_BUCKET]
             for name, reseeds in displayed:
-                lines.append(
-                    (1, f"* Test {name} has {len(reseeds)} {_plural('failure', reseeds)}.")
-                )
+                lines.append((1, f"* Test {name} has {len(reseeds)} {_plural(noun, reseeds)}."))
 
                 for failure in reseeds[: self.MAX_RESEEDS_PER_BUCKETED_TEST]:
                     lines.append((2, f"* {failure.qual_name}\\"))
@@ -411,7 +452,7 @@ class MarkdownReportRenderer:
 
                 extra = len(reseeds) - self.MAX_RESEEDS_PER_BUCKETED_TEST
                 if extra > 0:
-                    lines.append((2, f"* ... and {extra} more {_plural('failure', extra)}."))
+                    lines.append((2, f"* ... and {extra} more {_plural(noun, extra)}."))
 
             extra = len(grouped_tests) - self.MAX_TESTS_PER_BUCKET
             if extra > 0:
@@ -456,10 +497,19 @@ class MarkdownReportRenderer:
                     "Name": name_link,
                     "Passing": flow_result.passed,
                     "Total": flow_result.total,
-                    "Pass Rate": f"{flow_result.percent:.2f} %",
+                    "Pass Rate": (
+                        "-- %" if flow_result.total == 0 else f"{flow_result.percent:.2f} %"
+                    ),
                     "Coverage": coverage,
                 }
             )
+            if flow_result.xfailed or flow_result.xpassed:
+                table[-1]["XFail"] = _xfail_cell(flow_result.xfailed, flow_result.xpassed)
+
+        # Every row needs every column.
+        if any("XFail" in row for row in table):
+            for row in table:
+                row.setdefault("XFail", "")
 
         if table:
             colalign = ("center",) * len(table[0])

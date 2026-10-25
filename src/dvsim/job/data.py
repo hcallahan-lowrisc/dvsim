@@ -131,6 +131,9 @@ class JobSpec(BaseModel):
     fail_patterns: Sequence[str]
     """regex patterns to match on to determine if the job has failed."""
 
+    xfail: str | None = None
+    """Why the job is expected to fail, or None if it is expected to pass."""
+
     @property
     def id(self) -> str:
         """Returns a string that uniquely identifies this job."""
@@ -154,6 +157,8 @@ class JobStatusInfo(BaseModel):
     """Relevant line information (in the job script or the job itself)."""
     context: Sequence[str] | None = None
     """Arbitrary context strings."""
+    cancelled: bool = False
+    """The scheduler stopped the job for a reason outside it (a failed dependency or a signal)."""
 
 
 class CompletedJobStatus(BaseModel):
@@ -201,3 +206,6 @@ class CompletedJobStatus(BaseModel):
     """Status of the job."""
     fail_msg: JobStatusInfo | None
     """Error message."""
+
+    xfail: str | None = None
+    """Why the job is expected to fail, or None if it is expected to pass."""
