@@ -17,7 +17,17 @@ _CMDLINE_FIELDS = {"tool"}
 _FILE_DIR_WILDCARD = "{file_dir}"
 
 
-def load_hjson(path, initial_values):
+class HjsonMergeError(RuntimeError):
+    """A value in an hjson file can't be merged with what is already loaded."""
+
+    def __init__(self, path: str, reason: str) -> None:
+        """Record the file and the reason; the message gives both."""
+        super().__init__(f"{path!r}: {reason}")
+        self.path = path
+        self.reason = reason
+
+
+def load_hjson(path, initial_values, arg_keys=None):
     """Load an hjson file and any includes.
 
     Combines them all into a single dictionary, which is then returned. This
@@ -30,6 +40,10 @@ def load_hjson(path, initial_values):
     is not modified). It needs to contain values for anything needed to resolve
     include files (typically, this is 'proj_root' and 'tool' (if set)).
 
+    arg_keys are the keys of initial_values that came from the command line,
+    which the files can't change. By default, that is any of them that the
+    command line can set.
+
     """
     worklist = [path]
     seen = {path}
@@ -39,7 +53,8 @@ def load_hjson(path, initial_values):
     # Figure out a list of fields that had a value from the command line. These
     # should have been passed in as part of initial_values and we need to know
     # that we can safely ignore updates.
-    arg_keys = _CMDLINE_FIELDS & initial_values.keys()
+    if arg_keys is None:
+        arg_keys = _CMDLINE_FIELDS & initial_values.keys()
 
     while worklist:
         next_path = worklist.pop()
@@ -162,13 +177,11 @@ def set_target_attribute(path, target, key, dict_val) -> None:
     if isinstance(old_val, list):
         if not isinstance(dict_val, list):
             msg = (
-                f"{path!r}: Conflicting types for key {key!r}: was "
+                f"Conflicting types for key {key!r}: was "
                 f"{old_val!r}, a list, but loaded value is {dict_val!r}, "
                 f"of type {type(dict_val).__name__}."
             )
-            raise RuntimeError(
-                msg,
-            )
+            raise HjsonMergeError(path, msg)
 
         # Lists are merged by concatenation
         target[key] += dict_val
@@ -182,19 +195,15 @@ def set_target_attribute(path, target, key, dict_val) -> None:
             defaults = st_defaults
             break
     if defaults is None:
-        msg = f"{path!r}: Value for key {key!r} is {dict_val!r}, of unknown type {type(dict_val).__name__}."
-        raise RuntimeError(
-            msg,
-        )
+        msg = f"Value for key {key!r} is {dict_val!r}, of unknown type {type(dict_val).__name__}."
+        raise HjsonMergeError(path, msg)
     if not isinstance(old_val, st_type):
         msg = (
-            f"{path!r}: Value for key {key!r} is {dict_val!r}, but "
+            f"Value for key {key!r} is {dict_val!r}, but "
             f"we already had the value {old_val!r}, of an "
             "incompatible type."
         )
-        raise RuntimeError(
-            msg,
-        )
+        raise HjsonMergeError(path, msg)
 
     # The types are compatible. If the values are equal, there's nothing more
     # to do
@@ -217,9 +226,7 @@ def set_target_attribute(path, target, key, dict_val) -> None:
 
     # Neither value looks like a default. Raise an error.
     msg = (
-        f"{path!r}: Value for key {key!r} is {dict_val!r}, but "
+        f"Value for key {key!r} is {dict_val!r}, but "
         f"we already had a conflicting value of {old_val!r}."
     )
-    raise RuntimeError(
-        msg,
-    )
+    raise HjsonMergeError(path, msg)
