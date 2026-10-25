@@ -21,13 +21,14 @@ from typing import Any
 import pytest
 from hamcrest import assert_that, calling, empty, equal_to, only_contains, raises
 
-from dvsim.job.data import CompletedJobStatus, JobSpec, WorkspaceConfig
+from dvsim.job.data import CompletedJobStatus, JobSpec, JobStatusInfo, WorkspaceConfig
 from dvsim.job.status import JobStatus
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherBusyError, LauncherError
 from dvsim.logging import _VERBOSE_LOG_LEVEL
 from dvsim.report.data import IPMeta, ToolMeta
+from dvsim.runtime.data import JobCompletionEvent
 from dvsim.runtime.legacy import LegacyLauncherAdapter
-from dvsim.scheduler.core import Scheduler
+from dvsim.scheduler.core import Scheduler, _find_retry_match
 from dvsim.scheduler.resources import ResourceManager, StaticResourceProvider
 from dvsim.scheduler.runner import run_scheduler
 from dvsim.tool.utils import _SUPPORTED_SIM_TOOLS
@@ -1113,3 +1114,225 @@ class TestLogging:
                     logged_tools.add(str(args[0]).strip())
 
         assert_that(logged_tools, equal_to(expected_tools))
+
+
+@dataclass
+class FlakyMockJob(MockJob):
+    """A job that fails on its first <failures> launches, then passes."""
+
+    failures: int = 0
+
+    @property
+    def current_status(self) -> JobStatus:
+        return JobStatus.FAILED if self.launch_count <= self.failures else JobStatus.PASSED
+
+
+LIC_PATTERN = r"licen[cs]e checkout failed"
+
+
+class TestRetries:
+    """Unit tests for retrying failed jobs whose logs match their retry patterns."""
+
+    LIC_ERROR = "Error: license checkout failed"
+
+    @staticmethod
+    def _job(fxt: Fxt, log_text: str | None, **overrides: object) -> JobSpec:
+        job = job_spec_factory(fxt.tmp_path, **overrides)
+        if log_text is not None:
+            job.log_path.parent.mkdir(parents=True, exist_ok=True)
+            job.log_path.write_text(f"Starting\n{log_text}\nDone\n")
+        return job
+
+    @staticmethod
+    @pytest.mark.asyncio
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    @pytest.mark.parametrize(
+        ("failures", "max_retries", "status", "retries"),
+        [
+            (1, 2, JobStatus.PASSED, 1),
+            (2, 2, JobStatus.PASSED, 2),
+            (3, 2, JobStatus.FAILED, 2),
+            (1, 0, JobStatus.FAILED, 0),
+        ],
+    )
+    async def test_retry_on_match(
+        fxt: Fxt, failures: int, max_retries: int, status: JobStatus, retries: int
+    ) -> None:
+        """A failed job whose log matches is run again, up to max_retries times."""
+        job = TestRetries._job(
+            fxt,
+            TestRetries.LIC_ERROR,
+            retry_patterns=[LIC_PATTERN],
+            max_retries=max_retries,
+        )
+        mock = FlakyMockJob(failures=failures)
+        fxt.mock_ctx.set_config(job, mock)
+        result = await Scheduler([job], fxt.backends, MOCK_BACKEND).run()
+        assert_that(result[0].status, equal_to(status))
+        assert_that(result[0].retries, equal_to(retries))
+        assert_that(mock.launch_count, equal_to(retries + 1))
+        # The log of each failed run that was retried is kept beside the log.
+        kept = sorted(p.name for p in job.log_path.parent.glob(f"{job.log_path.name}.retry*"))
+        assert_that(kept, equal_to([f"{job.log_path.name}.retry{n + 1}" for n in range(retries)]))
+
+    @staticmethod
+    @pytest.mark.asyncio
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    @pytest.mark.parametrize(
+        ("log_text", "patterns"),
+        [
+            ("Error: assertion failed", [LIC_PATTERN]),
+            (LIC_ERROR, []),
+            (None, [LIC_PATTERN]),
+        ],
+    )
+    async def test_no_retry(fxt: Fxt, log_text: str | None, patterns: list[str]) -> None:
+        """A failure that doesn't match (or a job with no patterns, or no log) isn't retried."""
+        job = TestRetries._job(fxt, log_text, retry_patterns=patterns, max_retries=2)
+        mock = FlakyMockJob(failures=1)
+        fxt.mock_ctx.set_config(job, mock)
+        result = await Scheduler([job], fxt.backends, MOCK_BACKEND).run()
+        assert_that(result[0].status, equal_to(JobStatus.FAILED))
+        assert_that(result[0].retries, equal_to(0))
+        assert_that(mock.launch_count, equal_to(1))
+
+    @staticmethod
+    @pytest.mark.asyncio
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    async def test_retry_releases_resources(fxt: Fxt) -> None:
+        """A retried job gives back its resources, so it (and others) can run again."""
+        jobs = [
+            TestRetries._job(
+                fxt,
+                TestRetries.LIC_ERROR,
+                name=f"job_{i}",
+                resources={"LIC": 1},
+                retry_patterns=["license"],
+                max_retries=1,
+            )
+            for i in range(2)
+        ]
+        for job in jobs:
+            fxt.mock_ctx.set_config(job, FlakyMockJob(failures=1))
+        resource_manager = ResourceManager(StaticResourceProvider({"LIC": 1}))
+        scheduler = Scheduler(jobs, fxt.backends, MOCK_BACKEND, resource_manager=resource_manager)
+        result = await scheduler.run()
+        _assert_result_status(result, 2)
+        assert_that([r.retries for r in result], equal_to([1, 1]))
+        assert_that(fxt.mock_ctx.max_concurrent, equal_to(1))
+
+    @staticmethod
+    @pytest.mark.asyncio
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    async def test_retry_waits_for_its_delay(fxt: Fxt) -> None:
+        """A retried job waits retry_delay_secs before it runs again."""
+        delay = 0.2
+        job = TestRetries._job(
+            fxt,
+            TestRetries.LIC_ERROR,
+            retry_patterns=[LIC_PATTERN],
+            max_retries=1,
+            retry_delay_secs=delay,
+        )
+        mock = FlakyMockJob(failures=1)
+        fxt.mock_ctx.set_config(job, mock)
+        start = time.monotonic()
+        result = await Scheduler([job], fxt.backends, MOCK_BACKEND).run()
+        assert_that(result[0].status, equal_to(JobStatus.PASSED))
+        assert_that(mock.launch_count, equal_to(2))
+        assert time.monotonic() - start >= delay
+
+    @staticmethod
+    @pytest.mark.asyncio
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    async def test_shutdown_kills_a_job_waiting_to_retry(fxt: Fxt) -> None:
+        """A shutdown signal kills a job that waits out its retry delay, without waiting."""
+        job = TestRetries._job(
+            fxt,
+            TestRetries.LIC_ERROR,
+            retry_patterns=[LIC_PATTERN],
+            max_retries=1,
+            retry_delay_secs=3600,
+        )
+        mock = FlakyMockJob(failures=1)
+        fxt.mock_ctx.set_config(job, mock)
+        scheduler = Scheduler([job], fxt.backends, MOCK_BACKEND)
+
+        def on_change(_spec: JobSpec, old: JobStatus, new: JobStatus) -> None:
+            if (old, new) == (JobStatus.RUNNING, JobStatus.QUEUED):
+                scheduler._shutdown_signal = SIGINT  # noqa: SLF001
+                scheduler._shutdown_event.set()  # noqa: SLF001
+
+        scheduler.add_job_status_change_callback(on_change)
+        result = await scheduler.run()
+        assert_that(result[0].status, equal_to(JobStatus.KILLED))
+        assert_that(mock.launch_count, equal_to(1))
+
+    @staticmethod
+    @pytest.mark.asyncio
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    async def test_renewed_odir_keeps_no_copy(fxt: Fxt) -> None:
+        """A job whose output directory is renewed keeps no copy of its log.
+
+        The backend moves the whole directory aside before the job runs again.
+        """
+        job = TestRetries._job(
+            fxt,
+            TestRetries.LIC_ERROR,
+            retry_patterns=[LIC_PATTERN],
+            max_retries=1,
+            renew_odir=True,
+        )
+        fxt.mock_ctx.set_config(job, FlakyMockJob(failures=1))
+        result = await Scheduler([job], fxt.backends, MOCK_BACKEND).run()
+        assert_that(result[0].retries, equal_to(1))
+        assert_that(list(job.log_path.parent.glob("*.retry*")), empty())
+
+    @staticmethod
+    @pytest.mark.asyncio
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    async def test_dependent_waits_for_the_retried_job(fxt: Fxt) -> None:
+        """A job that depends on a retried one runs once that passes."""
+        build = TestRetries._job(
+            fxt, TestRetries.LIC_ERROR, name="build", retry_patterns=[LIC_PATTERN], max_retries=1
+        )
+        run = job_spec_factory(fxt.tmp_path, name="run", dependencies=["build"])
+        fxt.mock_ctx.set_config(build, FlakyMockJob(failures=1))
+        result = await Scheduler([build, run], fxt.backends, MOCK_BACKEND).run()
+        _assert_result_status(result, 2)
+
+    @staticmethod
+    @pytest.mark.asyncio
+    async def test_only_a_running_job_is_retried(fxt: Fxt) -> None:
+        """A late completion for a job that already finished isn't retried."""
+        job = TestRetries._job(
+            fxt, TestRetries.LIC_ERROR, retry_patterns=[LIC_PATTERN], max_retries=1
+        )
+        scheduler = Scheduler([job], fxt.backends, MOCK_BACKEND)
+        record = scheduler._jobs[job.id]  # noqa: SLF001
+        record.status = JobStatus.FAILED
+        event = JobCompletionEvent(job, JobStatus.FAILED, None)
+        assert not await scheduler._should_retry(record, event)  # noqa: SLF001
+
+
+class TestFindRetryMatch:
+    """Finding the line of a failed job's log that matches its retry patterns."""
+
+    @staticmethod
+    def test_first_matching_line(tmp_path: Path) -> None:
+        log_path = tmp_path / "run.log"
+        log_path.write_text("ok\nError: license checkout failed (1)\nlicense checkout failed\n")
+        match = _find_retry_match([LIC_PATTERN], log_path, None)
+        assert_that(match, equal_to("Error: license checkout failed (1)"))
+
+    @staticmethod
+    def test_no_log_uses_the_reason(tmp_path: Path) -> None:
+        reason = JobStatusInfo(message="Job failed", context=["Error: licence checkout failed"])
+        match = _find_retry_match([LIC_PATTERN], tmp_path / "missing.log", reason)
+        assert_that(match, equal_to("Error: licence checkout failed"))
+
+    @staticmethod
+    def test_no_log_and_no_reason(tmp_path: Path) -> None:
+        assert_that(
+            _find_retry_match([LIC_PATTERN], tmp_path / "missing.log", None), equal_to(None)
+        )

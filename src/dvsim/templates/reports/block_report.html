@@ -279,5 +279,22 @@
     {% if xfailed_jobs %}
     {{ bucket_table("Expected Failures", xfailed_jobs) }}
     {% endif %}
+
+    {% if results.retried_jobs %}
+    <div class="row py-3">
+        <div class="col">
+            <h3>Retried Jobs</h3>
+            <p>The last run of each counts in the results.</p>
+            <table class="table table-sm table-hover">
+                <thead><tr><th>Job</th><th>Retries</th></tr></thead>
+                <tbody>
+                {% for name, n in results.retried_jobs|dictsort %}
+                    <tr><td>{{ name }}</td><td>{{ n }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

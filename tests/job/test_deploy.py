@@ -73,6 +73,9 @@ class FakeBuildMode:
         self.build_opts = ["-b path/here", '-a "Quoted"']
         self.post_build_opts = ["E"]
         self.resources = {}
+        self.retry_patterns = []
+        self.max_retries = None
+        self.retry_delay_secs = None
 
 
 def _build_compile_sim(

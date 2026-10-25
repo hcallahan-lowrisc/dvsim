@@ -322,6 +322,13 @@ class MarkdownReportRenderer:
             if bucket_summary:
                 report_md += "\n\n" + bucket_summary
 
+        if results.retried_jobs:
+            report_md += "\n\n## Retried Jobs\n\nThe last run of each counts in the results.\n\n"
+            report_md += "\n".join(
+                f"* `{name}`: {n} retr{'y' if n == 1 else 'ies'}"
+                for name, n in sorted(results.retried_jobs.items())
+            )
+
         return report_md
 
     def render_result_table(self, results: SimFlowResults) -> str:

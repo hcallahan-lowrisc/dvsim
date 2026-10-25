@@ -6,7 +6,7 @@ import sys
 from copy import deepcopy
 
 from dvsim.logging import log
-from dvsim.modes import RunMode, find_mode, find_mode_list, merge_resources
+from dvsim.modes import RunMode, find_mode, find_mode_list, merge_resources, merge_retries
 
 
 class Test(RunMode):
@@ -130,6 +130,9 @@ class Test(RunMode):
                 test_obj.resources, test_obj.build_mode.run_resources
             )
 
+            # A build mode's retry settings apply to the tests run on it too.
+            merge_retries(test_obj, test_obj.build_mode)
+
         # Return the list of tests
         return tests_objs
 
@@ -147,6 +150,8 @@ class Test(RunMode):
         global_sw_build_opts,
         global_build_resources=None,
         global_run_resources=None,
+        global_build_retries=None,
+        global_run_retries=None,
     ) -> None:
         processed_build_modes = set()
         for test in tests:
@@ -158,6 +163,8 @@ class Test(RunMode):
                 test.build_mode.resources = merge_resources(
                     test.build_mode.resources, global_build_resources
                 )
+                if global_build_retries is not None:
+                    merge_retries(test.build_mode, global_build_retries)
                 processed_build_modes.add(test.build_mode.name)
             test.pre_run_cmds.extend(global_pre_run_cmds)
             test.post_run_cmds.extend(global_post_run_cmds)
@@ -165,3 +172,5 @@ class Test(RunMode):
             test.sw_images.extend(global_sw_images)
             test.sw_build_opts.extend(global_sw_build_opts)
             test.resources = merge_resources(test.resources, global_run_resources)
+            if global_run_retries is not None:
+                merge_retries(test, global_run_retries)

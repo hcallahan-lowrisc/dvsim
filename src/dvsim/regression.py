@@ -5,7 +5,14 @@
 import sys
 
 from dvsim.logging import log
-from dvsim.modes import Mode, find_mode, find_mode_list, merge_resources
+from dvsim.modes import (
+    Mode,
+    RetrySettings,
+    find_mode,
+    find_mode_list,
+    merge_resources,
+    merge_retries,
+)
 from dvsim.test import Test
 
 
@@ -49,6 +56,9 @@ class Regression(Mode):
         # Set after the regression's own keys, as they are not keys of a regression.
         self.build_resources = {}
         self.run_resources = {}
+        # The same for their retry settings. A build mode's apply to the tests run on it too.
+        self.build_retries = RetrySettings()
+        self.run_retries = RetrySettings()
 
     @staticmethod
     def create_regressions(regdicts, sim_cfg, tests):
@@ -134,6 +144,8 @@ class Regression(Mode):
                 regression_obj.run_resources = merge_resources(
                     regression_obj.run_resources, sim_mode_obj.run_resources
                 )
+                merge_retries(regression_obj.build_retries, sim_mode_obj)
+                merge_retries(regression_obj.run_retries, sim_mode_obj)
 
             # Unpack the run_modes
             # TODO: If there are other params other than run_opts throw an
@@ -152,6 +164,7 @@ class Regression(Mode):
                 regression_obj.run_resources = merge_resources(
                     regression_obj.run_resources, run_mode_obj.resources
                 )
+                merge_retries(regression_obj.run_retries, run_mode_obj)
 
             # Unpack tests
             # If `tests` member resolves to None, then we add ALL available
@@ -242,11 +255,13 @@ class Regression(Mode):
                 test.build_mode.resources = merge_resources(
                     test.build_mode.resources, self.build_resources
                 )
+                merge_retries(test.build_mode, self.build_retries)
                 processed_build_modes.append(test.build_mode.name)
             test.pre_run_cmds.extend(self.pre_run_cmds)
             test.post_run_cmds.extend(self.post_run_cmds)
             test.run_opts.extend(self.run_opts)
             test.resources = merge_resources(test.resources, self.run_resources)
+            merge_retries(test, self.run_retries)
 
             # Override reseed if available.
             if self.reseed is not None:

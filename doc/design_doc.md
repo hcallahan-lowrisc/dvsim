@@ -237,6 +237,25 @@ If the job exceeds the pre-set wall clock time, the scheduler sends the terminat
 When the jobs finally retire, the status (passed, failed, or killed) is recorded in the deployable object.
 If the job failed or got killed, the corresponding error message is also recorded.
 
+A failure that isn't the job's fault, such as a licence server with no seat free, can be retried:
+
+```hjson
+build_modes: [
+  {
+    name: "vip"
+    retry_patterns: ["licen[cs]e checkout failed"]  // regexes, matched against each line of the log
+    max_retries: 2                                  // default 1
+    retry_delay_secs: 60                            // default 30
+  }
+]
+```
+
+A job that fails (not one that is killed or times out) and whose log has a line that matches one of its `retry_patterns` waits `retry_delay_secs`, then goes back in the queue, up to `max_retries` times; after that it fails as usual (for a test marked `xfail`, that is an XFAIL).
+Build modes, run modes and tests take these keys.
+A build mode's settings apply to its build and to the tests run on it, and a test takes those of the run modes it enables, as do modes enabled for the whole run or by a regression; where a test or mode sets `max_retries` or `retry_delay_secs` itself, its own value wins.
+The reports list the retried jobs.
+Each attempt of a test runs in a fresh output directory, and the directory of the failed attempt is kept like that of an earlier run (see `--max-odirs`); a job that keeps its output directory, such as a build, keeps the log of each failed attempt as `<log>.retry<n>`.
+
 ### Report stage
 
 When all jobs are done, the flow manager object starts constructing the final report, capturing all the relevant information to depict the overall status of the invocation.

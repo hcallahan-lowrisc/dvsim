@@ -28,7 +28,15 @@ from dvsim.job.deploy import (
 )
 from dvsim.job.status import JobStatus
 from dvsim.logging import log
-from dvsim.modes import BuildMode, Mode, RunMode, find_mode, merge_resources
+from dvsim.modes import (
+    BuildMode,
+    Mode,
+    RetrySettings,
+    RunMode,
+    find_mode,
+    merge_resources,
+    merge_retries,
+)
 from dvsim.regression import Regression
 from dvsim.report.data import GitRevisionMeta
 from dvsim.sim.data import (
@@ -307,6 +315,9 @@ class SimCfg(FlowCfg):
         # the tests.
         self.global_build_resources = {}
         self.global_run_resources = {}
+        # The same for their retry settings. A build mode's apply to the tests run on it too.
+        self.global_build_retries = RetrySettings()
+        self.global_run_retries = RetrySettings()
 
         # Walk through build modes enabled on the CLI and append the opts
         for en_build_mode in self.en_build_modes:
@@ -327,6 +338,8 @@ class SimCfg(FlowCfg):
                 self.global_run_resources = merge_resources(
                     self.global_run_resources, build_mode_obj.run_resources
                 )
+                merge_retries(self.global_build_retries, build_mode_obj)
+                merge_retries(self.global_run_retries, build_mode_obj)
             else:
                 log.error(
                     'Mode "%s" enabled on the command line is not defined',
@@ -346,6 +359,7 @@ class SimCfg(FlowCfg):
                 self.global_run_resources = merge_resources(
                     self.global_run_resources, run_mode_obj.resources
                 )
+                merge_retries(self.global_run_retries, run_mode_obj)
             else:
                 log.error('Mode "%s" enabled on the command line is not defined', en_run_mode)
                 sys.exit(1)
@@ -457,6 +471,8 @@ class SimCfg(FlowCfg):
             self.sw_build_opts,
             self.global_build_resources,
             self.global_run_resources,
+            self.global_build_retries,
+            self.global_run_retries,
         )
 
         # Process reseed override and create the build_list
@@ -946,6 +962,7 @@ class SimCfg(FlowCfg):
             extensions=tuple(extensions),
             **_xfail_counts(all_trs.values()),
             xfailed_jobs=expected_failures,
+            retried_jobs={r.qual_name: r.retries for r in run_results if r.retries},
         )
 
     def _fake_policy(self, job: JobSpec) -> JobStatus:

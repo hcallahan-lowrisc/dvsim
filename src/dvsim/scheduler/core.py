@@ -5,10 +5,14 @@
 """Job scheduler."""
 
 import asyncio
+import functools
 import heapq
+import re
+import shutil
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from signal import SIGINT, SIGTERM, getsignal, signal
 from types import FrameType
 from typing import Any, TypeAlias
@@ -46,6 +50,7 @@ class JobRecord:
     passing_deps: int = 0
     dependents: list[str] = field(default_factory=list)
     kill_requested: bool = False
+    retries: int = 0
 
     handle: JobHandle | None = None
 
@@ -92,6 +97,47 @@ KILLED_RUNNING_SIGTERM = JobStatusInfo(
     message="Job killed by a SIGTERM signal to the scheduler whilst executing.",
     cancelled=True,
 )
+
+
+@functools.lru_cache(maxsize=64)
+def _retry_regex(patterns: tuple[str, ...]) -> re.Pattern[str]:
+    """Compile a job's retry patterns into one regex (jobs often share their patterns)."""
+    return re.compile("|".join(f"(?:{p})" for p in patterns))
+
+
+def _find_retry_match(
+    patterns: Sequence[str], log_path: Path, reason: JobStatusInfo | None
+) -> str | None:
+    """Find the first line of a failed job's log that matches one of its retry patterns.
+
+    If the log can't be read, look in the failure reason instead. Returns the matching
+    line, or None. This reads the whole log, so run it away from the event loop.
+    """
+    regex = _retry_regex(tuple(patterns))
+
+    def first_match(lines: Iterable[str]) -> str | None:
+        return next((line for line in lines if regex.search(line)), None)
+
+    try:
+        with log_path.open(encoding="utf-8", errors="surrogateescape") as f:
+            return first_match(line.rstrip("\n") for line in f)
+    except OSError:
+        if reason is None:
+            return None
+        return first_match([reason.message, *(reason.context or [])])
+
+
+def _keep_log(log_path: Path, retry: int) -> None:
+    """Copy the log of a failed run to <log>.retry<n>, before retry n overwrites it.
+
+    Only for jobs that keep their output directory: one that is renewed for each run is moved
+    aside, log and all, before the retry starts.
+    """
+    kept = log_path.with_name(f"{log_path.name}.retry{retry}")
+    try:
+        shutil.copyfile(log_path, kept)
+    except OSError as e:
+        log.debug("Not keeping the log of %s before retry %d: %s", log_path, retry, e)
 
 
 class Scheduler:
@@ -147,6 +193,9 @@ class Scheduler:
         # Internal data structures and indexes to track running jobs.
         self._jobs: dict[str, JobRecord] = {}
         self._ready_heap: list[tuple[Priority, str]] = []
+        # Jobs that wait out their retry delay before they go back on the ready heap.
+        self._retry_timers: dict[str, asyncio.TimerHandle] = {}
+        self._retry_ready = asyncio.Event()
         self._running: set[str] = set()
         self._running_per_backend: dict[str, int] = dict.fromkeys(backends, 0)
         self._event_queue: asyncio.Queue[Iterable[JobCompletionEvent]] = asyncio.Queue()
@@ -314,6 +363,10 @@ class Scheduler:
             raise RuntimeError(msg)
 
         self._change_job_status(job, JobStatus.QUEUED)
+        self._push_ready(job)
+
+    def _push_ready(self, job: JobRecord) -> None:
+        """Put a queued job on the heap of jobs that are ready to run."""
         # heapq is a min heap, so push (-priority) instead of (priority).
         priority = self._priority_fn(job)
         priority = priority if isinstance(priority, Sequence) else (priority,)
@@ -430,6 +483,7 @@ class Scheduler:
                 status=job.status,
                 fail_msg=job.status_info,
                 xfail=job.spec.xfail,
+                retries=job.retries,
             )
             for job in self._jobs.values()
         ]
@@ -476,22 +530,24 @@ class Scheduler:
 
         job_completion_task = asyncio.create_task(self._event_queue.get())
         shutdown_task = asyncio.create_task(self._shutdown_event.wait())
+        retry_ready_task = asyncio.create_task(self._retry_ready.wait())
 
         try:
             while True:
                 await self._schedule_ready_jobs()
 
-                if not self._running:
+                if not self._running and not self._retry_timers:
                     if not self._ready_heap:
                         break
                     # This case (nothing running, but jobs still pending in the queue) can happen
                     # if backends fail to schedule any jobs (e.g. the backend is temporarily busy).
                     continue
 
-                # Wait for any job to complete, or for a shutdown signal
+                # Wait for any job to complete, for a retried job to become ready again, or for
+                # a shutdown signal
                 try:
                     done, _ = await asyncio.wait(
-                        (job_completion_task, shutdown_task),
+                        (job_completion_task, shutdown_task, retry_ready_task),
                         return_when=asyncio.FIRST_COMPLETED,
                     )
                 except asyncio.QueueShutDown as e:
@@ -504,15 +560,79 @@ class Scheduler:
                     await self._handle_exit_signal()
                     continue
 
+                if retry_ready_task in done:
+                    self._retry_ready.clear()
+                    retry_ready_task = asyncio.create_task(self._retry_ready.wait())
+                    if job_completion_task not in done:
+                        continue
+
                 completions = await self._drain_completions(job_completion_task)
                 job_completion_task = asyncio.create_task(self._event_queue.get())
 
                 for event in completions:
                     job = self._jobs[event.spec.id]
+                    if await self._should_retry(job, event):
+                        self._retry_job(job)
+                        continue
                     self._mark_job_completed(job, event.status, event.reason)
         finally:
             job_completion_task.cancel()
             shutdown_task.cancel()
+            retry_ready_task.cancel()
+
+    async def _should_retry(self, job: JobRecord, event: JobCompletionEvent) -> bool:
+        """Whether a completed job failed in a way that its retry patterns say to retry.
+
+        Only a running job that failed by itself is retried: not one that was killed, timed out
+        or stopped by a signal.
+        """
+        spec = job.spec
+        if job.status != JobStatus.RUNNING or event.status != JobStatus.FAILED:
+            return False
+        if job.kill_requested or self._shutdown_signal is not None:
+            return False
+        if job.retries >= spec.max_retries or not spec.retry_patterns:
+            return False
+
+        match = await asyncio.to_thread(
+            _find_retry_match, spec.retry_patterns, spec.log_path, event.reason
+        )
+        if match is None:
+            return False
+
+        log.warning(
+            "Retrying %s (retry %d of %d) in %gs: it failed with %r",
+            spec.full_name,
+            job.retries + 1,
+            spec.max_retries,
+            spec.retry_delay_secs,
+            match,
+        )
+        return True
+
+    def _retry_job(self, job: JobRecord) -> None:
+        """Put a running job that failed back in the queue, to run it again."""
+        self._running.remove(job.spec.id)
+        self._running_per_backend[job.backend_key] -= 1
+        if self._resources and job.spec.resources:
+            self._resources.release(job.spec.resources)
+
+        job.retries += 1
+        if not job.spec.renew_odir:
+            _keep_log(job.spec.log_path, job.retries)
+        job.handle = None
+        self._change_job_status(job, JobStatus.QUEUED)
+        if job.spec.retry_delay_secs <= 0:
+            self._push_ready(job)
+            return
+
+        def ready() -> None:
+            del self._retry_timers[job.spec.id]
+            self._push_ready(job)
+            self._retry_ready.set()
+
+        loop = asyncio.get_running_loop()
+        self._retry_timers[job.spec.id] = loop.call_later(job.spec.retry_delay_secs, ready)
 
     async def _drain_completions(self, completion_task: asyncio.Task) -> list[JobCompletionEvent]:
         """Drain batched completions from the queue, optionally coalescing batched events."""
@@ -571,6 +691,11 @@ class Scheduler:
             _, job_id = heapq.heappop(self._ready_heap)
             job = self._jobs[job_id]
             self._mark_job_completed(job, JobStatus.KILLED, KILLED_QUEUED)
+        # The same for jobs waiting to be retried.
+        for job_id, timer in list(self._retry_timers.items()):
+            timer.cancel()
+            del self._retry_timers[job_id]
+            self._mark_job_completed(self._jobs[job_id], JobStatus.KILLED, KILLED_QUEUED)
 
         if kill_tasks:
             await asyncio.gather(*kill_tasks, return_exceptions=True)

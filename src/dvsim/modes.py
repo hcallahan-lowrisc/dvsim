@@ -4,8 +4,10 @@
 
 """Modes are an abstraction for a collection of options and configuration for a dvsim job."""
 
+import re
 import sys
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass, field
 from typing import Any
 
 from typing_extensions import Self
@@ -44,6 +46,8 @@ class Mode:
         for key in ("resources", "run_resources"):
             if key in keys:
                 setattr(self, key, check_resources(mdict[key], f"{type_name} {mdict['name']!r}"))
+        if keys & {"retry_patterns", "max_retries", "retry_delay_secs"}:
+            check_retries(self, f"{type_name} {mdict['name']!r}")
 
     def get_sub_modes(self) -> Sequence[str]:
         # Default behaviour is not to have sub-modes
@@ -273,6 +277,61 @@ def merge_resources(
     return merged
 
 
+# How long a job waits before it is retried, unless its retry_delay_secs says otherwise.
+DEFAULT_RETRY_DELAY_SECS = 30
+
+
+@dataclass
+class RetrySettings:
+    """The retry settings that modes enabled for a whole run or regression pass on."""
+
+    retry_patterns: list[str] = field(default_factory=list)
+    max_retries: int | None = None
+    retry_delay_secs: float | None = None
+
+
+def merge_retries(target: "Mode | RetrySettings", source: "Mode | RetrySettings") -> None:
+    """Add the retry settings of source to those of target.
+
+    target gets the patterns that it doesn't have yet, and takes max_retries and
+    retry_delay_secs only where it doesn't set them itself.
+    """
+    target.retry_patterns.extend(p for p in source.retry_patterns if p not in target.retry_patterns)
+    for key in ("max_retries", "retry_delay_secs"):
+        if getattr(target, key) is None:
+            setattr(target, key, getattr(source, key))
+
+
+def check_retries(mode: Mode, where: str) -> None:
+    """Check the retry settings of a mode or test.
+
+    A failed job whose log matches one of retry_patterns (regexes) is run again, up to
+    max_retries times (1 if not given), after waiting retry_delay_secs.
+    """
+    patterns = mode.retry_patterns
+    if not isinstance(patterns, list) or not all(isinstance(p, str) for p in patterns):
+        log.error("%s: retry_patterns must be a list of regexes, not %r.", where, patterns)
+        sys.exit(1)
+    for pattern in patterns:
+        try:
+            re.compile(pattern)
+        except re.error as e:
+            log.error("%s: retry pattern %r is not a valid regex: %s", where, pattern, e)
+            sys.exit(1)
+
+    count = mode.max_retries
+    if count is not None and (isinstance(count, bool) or not isinstance(count, int) or count < 0):
+        log.error("%s: max_retries must be a count, not %r.", where, count)
+        sys.exit(1)
+
+    delay = mode.retry_delay_secs
+    if delay is not None and (
+        isinstance(delay, bool) or not isinstance(delay, int | float) or delay < 0
+    ):
+        log.error("%s: retry_delay_secs must be a number of seconds, not %r.", where, delay)
+        sys.exit(1)
+
+
 def find_mode(mode_name: str, modes: Sequence[Mode]) -> Mode | None:
     """Search through a list of modes and return the one with the given name.
 
@@ -324,6 +383,9 @@ class BuildMode(Mode):
         self.sw_build_opts = []
         self.resources = {}
         self.run_resources = {}
+        self.retry_patterns = []
+        self.max_retries = None
+        self.retry_delay_secs = None
 
         super().__init__("build mode", bdict)
         self.en_build_modes = list(set(self.en_build_modes))
@@ -361,6 +423,9 @@ class RunMode(Mode):
         self.sw_build_device = ""
         self.sw_build_opts = []
         self.resources = {}
+        self.retry_patterns = []
+        self.max_retries = None
+        self.retry_delay_secs = None
 
         super().__init__("run mode", rdict)
         self.en_run_modes = list(set(self.en_run_modes))

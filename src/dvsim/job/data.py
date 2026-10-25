@@ -133,6 +133,12 @@ class JobSpec(BaseModel):
 
     xfail: str | None = None
     """Why the job is expected to fail, or None if it is expected to pass."""
+    retry_patterns: Sequence[str] = ()
+    """regex patterns: if the job fails and its log matches one, run it again."""
+    max_retries: int = 0
+    """How many times to run the job again after such a failure."""
+    retry_delay_secs: float = 0
+    """How long to wait before running the job again."""
 
     @property
     def id(self) -> str:
@@ -209,3 +215,5 @@ class CompletedJobStatus(BaseModel):
 
     xfail: str | None = None
     """Why the job is expected to fail, or None if it is expected to pass."""
+    retries: int = 0
+    """How many times the job was run again after a failure matching its retry patterns."""

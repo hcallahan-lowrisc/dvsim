@@ -16,7 +16,7 @@ from dvsim.job.data import JobSpec
 from dvsim.job.status import JobStatus
 from dvsim.job.time import JobTime
 from dvsim.logging import log
-from dvsim.modes import merge_resources
+from dvsim.modes import DEFAULT_RETRY_DELAY_SECS, merge_resources
 from dvsim.report.data import IPMeta, ToolMeta
 from dvsim.test import Test
 from dvsim.tool.utils import get_sim_tool_plugin
@@ -187,6 +187,9 @@ class Deploy:
             pass_patterns=self.pass_patterns,
             fail_patterns=self.fail_patterns,
             xfail=self.xfail,
+            retry_patterns=self.retry_patterns,
+            max_retries=self.max_retries,
+            retry_delay_secs=self.retry_delay_secs,
         )
 
     def _define_attrs(self) -> None:
@@ -282,10 +285,29 @@ class Deploy:
         self.pass_patterns = []
         self.fail_patterns = []
 
+        # Retries of a failed job whose log matches a pattern; set from the mode or test.
+        self.retry_patterns = []
+        self.max_retries = 0
+        self.retry_delay_secs = 0
+
     def _add_resources(self, resources: Mapping[str, int] | None) -> None:
         """Add resources that a mode or test asks for to those of this job."""
         if resources:
             self.resources = merge_resources(self.resources, resources)
+
+    def _set_retries(self, mode: object) -> None:
+        """Take the retry settings of the mode or test this job runs.
+
+        Retry patterns without a max_retries give one retry, after DEFAULT_RETRY_DELAY_SECS
+        unless the mode says otherwise.
+        """
+        self.retry_patterns = list(mode.retry_patterns)
+        if not self.retry_patterns:
+            return
+        self.max_retries = 1 if mode.max_retries is None else mode.max_retries
+        self.retry_delay_secs = (
+            DEFAULT_RETRY_DELAY_SECS if mode.retry_delay_secs is None else mode.retry_delay_secs
+        )
 
     def _check_attrs(self) -> None:
         """Check if all required class attributes are set.
@@ -376,6 +398,11 @@ class Deploy:
 
         # A job that needs other resources is not interchangeable.
         if self.resources != item.resources:
+            return False
+
+        # A job that is retried differently is not interchangeable.
+        retries = (self.retry_patterns, self.max_retries, self.retry_delay_secs)
+        if retries != (item.retry_patterns, item.max_retries, item.retry_delay_secs):
             return False
 
         # Check if exports have identical set of keys.
@@ -511,6 +538,7 @@ class CompileSim(Deploy):
         super()._extract_attrs(self.build_mode_obj.__dict__)
         super()._set_attrs()
         self._add_resources(self.build_mode_obj.resources)
+        self._set_retries(self.build_mode_obj)
 
         # Dont run the compile job in GUI mode.
         self.gui = False
@@ -633,6 +661,7 @@ class CompileOneShot(Deploy):
         super()._extract_attrs(self.build_mode_obj.__dict__)
         super()._set_attrs()
         self._add_resources(self.build_mode_obj.resources)
+        self._set_retries(self.build_mode_obj)
 
         # 'build_mode' is used as a substitution variable in the HJson.
         self.build_mode = self.name
@@ -768,6 +797,7 @@ class RunTest(Deploy):
         self.renew_odir = True
 
         self.xfail = self.test_obj.xfail or None
+        self._set_retries(self.test_obj)
 
         # 'test' is used as a substitution variable in the HJson.
         self.test = self.name

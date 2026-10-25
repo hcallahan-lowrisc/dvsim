@@ -235,6 +235,9 @@ class SimFlowResults(BaseModel):
     xfailed_jobs: BucketedFailures = BucketedFailures(buckets={})
     """Bucketed overview of the expected failures (XFAIL)."""
 
+    retried_jobs: Mapping[str, int] = {}
+    """Jobs run again after a failure that matched a retry pattern: name to number of retries."""
+
     def summary(self) -> "SimFlowSummary":
         """Load results from JSON file.
 
