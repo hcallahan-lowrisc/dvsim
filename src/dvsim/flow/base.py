@@ -17,7 +17,13 @@ from typing import TYPE_CHECKING, ClassVar
 import hjson
 
 import dvsim.instrumentation.runtime as instrumentation
-from dvsim.flow.extension import CfgExtension, load_cfg_extension
+from dvsim.flow.extension import (
+    CfgExtension,
+    CfgExtensionSkip,
+    check_cfg_extension_overrides,
+    load_cfg_extension,
+    override_names,
+)
 from dvsim.flow.hjson import HjsonMergeError, set_target_attribute
 from dvsim.fusesoc import rewrite_fusesoc_opts
 from dvsim.job.data import CompletedJobStatus, JobSpec, WorkspaceConfig
@@ -148,10 +154,12 @@ class FlowCfg(ABC):
         # configuration".
         self.is_primary_cfg = "use_cfgs" in hjson_data
 
-        # The cfg extensions (--cfg-extend) merged into this cfg, and the name
-        # that they were matched against.
+        # The cfg extensions (--cfg-extend) that this cfg matched, in order, and
+        # the name that they were matched against. Those that were left out
+        # (--on-cfg-extend-error skip) map to the reason in cfg_extensions_skipped.
         self.cfg_extensions: list[CfgExtension] = []
         self.cfg_extend_name: str | None = None
+        self.cfg_extensions_skipped: dict[CfgExtension, CfgExtensionSkip] = {}
         # The git revision of the checkout holding each of those extensions
         # (None outside git), read when it is matched, for the reports.
         self.cfg_extension_revisions: dict[CfgExtension, GitRevision | None] = {}
@@ -241,19 +249,40 @@ class FlowCfg(ABC):
             if ext.cfg_name != name:
                 continue
             log.info("[cfg_extend]: %s: %s", name, ext.path)
+            self.cfg_extensions.append(ext)
             self.cfg_extension_revisions[ext] = git_revision(ext.path)
+            # The overrides set before this extension, by the cfg itself or an
+            # earlier extension.
+            taken = override_names(self.__dict__.get("overrides", []))
+            ext_data = {}
+            saved = {}
             try:
                 ext_data = load_cfg_extension(ext, initial_values, arg_keys)
+                # Keep the values that the merge will change, to put them back
+                # if the extension is skipped. set_target_attribute extends lists
+                # in place, so the merge goes into copies of them.
+                saved = {k: self.__dict__[k] for k in ext_data if k in self.__dict__}
+                for key, value in saved.items():
+                    if isinstance(value, list):
+                        self.__dict__[key] = list(value)
                 for key, value in ext_data.items():
                     set_target_attribute(str(ext.path), self.__dict__, key, value)
+                check_cfg_extension_overrides(ext_data.get("overrides", []), self, taken)
             except RuntimeError as err:
-                # A merge error starts with the path, which this message gives already.
+                # A merge error starts with the path, which these messages give already.
                 reason = str(err)
                 if isinstance(err, HjsonMergeError) and err.path == str(ext.path):
                     reason = err.reason
-                log.error("Cannot extend cfg %r with %s: %s", name, ext.path, reason)
-                sys.exit(1)
-            self.cfg_extensions.append(ext)
+                if self.args.on_cfg_extend_error != "skip":
+                    log.error("Cannot extend cfg %r with %s: %s", name, ext.path, reason)
+                    sys.exit(1)
+                log.warning("Skipping cfg extension %s for %r: %s", ext.path, name, reason)
+                for key in ext_data:
+                    if key in saved:
+                        self.__dict__[key] = saved[key]
+                    else:
+                        self.__dict__.pop(key, None)
+                self.cfg_extensions_skipped[ext] = CfgExtensionSkip(reason)
 
     def _expand(self) -> None:
         """Expand wildcards after merging hjson.

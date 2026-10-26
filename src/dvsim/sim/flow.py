@@ -912,10 +912,12 @@ class SimCfg(FlowCfg):
         if failures.buckets:
             self.errors_seen = True
 
+        skipped = self.cfg_extensions_skipped
         revisions = self.cfg_extension_revisions
         extensions = [
             CfgExtensionMeta(
                 path=str(ext.path),
+                skipped=skipped[ext].reason if ext in skipped else None,
                 revision=(
                     GitRevisionMeta(**dataclasses.asdict(revisions[ext]))
                     if revisions.get(ext)

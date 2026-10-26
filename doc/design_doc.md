@@ -165,7 +165,11 @@ The Hjson file at `PATH`, with its imports, is merged into the configuration who
 The usual merge rules apply: the extension's list entries follow the configuration's own, and a conflicting scalar is an error, so an extension changes a scalar with `overrides` (but not one that the configuration already overrides).
 In an extension, `{self_dir}` is still the directory of the configuration file that dvsim loaded, so the extension names its own files with `{file_dir}`.
 Several extensions apply in command-line order, and an extension whose `NAME` matches no loaded configuration is an error.
-The sim reports and JSON results list the extensions that each configuration merged, with the git revision of the checkout that holds each extension file: its `origin` (without credentials), its commit, and whether it was dirty, which includes the extension file itself not being tracked.
+With `--on-cfg-extend-error skip`, an extension that can't be loaded or merged, or whose `overrides` don't fit the configuration, is left out with a warning instead: the configuration runs as if the extension had not been named, later extensions still apply, and its reports say which extension was skipped and why.
+An extension's `overrides` can only name keys that the configuration or an earlier extension define.
+An extension whose `NAME` matches nothing only gets a warning, as no report belongs to it.
+Errors found after the merge are not covered: for example an unknown wildcard in one of the extension's values, a test that names a build mode that doesn't exist, or a failing build.
+The sim reports and JSON results list the extensions that each configuration matched, with the git revision of the checkout that holds each extension file: its `origin` (without credentials), its commit, and whether it was dirty, which includes the extension file itself not being tracked.
 Files that an extension imports from elsewhere are not recorded.
 
 ### Parser stage
