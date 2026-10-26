@@ -34,7 +34,7 @@ from dvsim.utils import (
     rm_path,
     subst_wildcards,
 )
-from dvsim.utils.git import git_commit_hash, git_is_dirty
+from dvsim.utils.git import GitRevision, git_commit_hash, git_is_dirty, git_revision
 
 if TYPE_CHECKING:
     from dvsim.job.deploy import Deploy
@@ -152,6 +152,9 @@ class FlowCfg(ABC):
         # that they were matched against.
         self.cfg_extensions: list[CfgExtension] = []
         self.cfg_extend_name: str | None = None
+        # The git revision of the checkout holding each of those extensions
+        # (None outside git), read when it is matched, for the reports.
+        self.cfg_extension_revisions: dict[CfgExtension, GitRevision | None] = {}
 
         if not self.is_primary_cfg:
             # Extensions merge after everything the cfg loads itself, and
@@ -238,6 +241,7 @@ class FlowCfg(ABC):
             if ext.cfg_name != name:
                 continue
             log.info("[cfg_extend]: %s: %s", name, ext.path)
+            self.cfg_extension_revisions[ext] = git_revision(ext.path)
             try:
                 ext_data = load_cfg_extension(ext, initial_values, arg_keys)
                 for key, value in ext_data.items():

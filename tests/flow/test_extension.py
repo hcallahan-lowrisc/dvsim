@@ -256,3 +256,24 @@ class TestNames:
         assert check_cfg_extensions_used(exts[:1], [], ["b"], None) == [
             "Cfg extension /a names 'a', but no loaded cfg has that name (loaded: b)."
         ]
+
+
+class TestRevision:
+    def test_revision_is_recorded(self, proj: Path, tmp_path: Path) -> None:
+        overlay = tmp_path / "overlay"
+        ext = _write(overlay / "dv" / "ext.hjson", '{run_opts: ["+x"]}')
+        git = ["git", "-C", str(overlay)]
+        subprocess.run([*git, "init", "-q"], check=True)
+        subprocess.run([*git, "add", "dv"], check=True)
+        subprocess.run([*git, "commit", "-q", "-m", "init"], check=True)
+        head = subprocess.run(
+            [*git, "rev-parse", "HEAD"], check=True, capture_output=True, text=True
+        ).stdout.strip()
+        outside = _write(tmp_path / "loose" / "ext.hjson", '{run_opts: ["+y"]}')
+
+        blk = _blk(_load(proj, "top_sim_cfgs.hjson", f"blk={ext}", f"blk={outside}"))
+
+        revision = blk.cfg_extension_revisions[CfgExtension("blk", ext)]
+        assert revision is not None
+        assert (revision.commit, revision.dirty) == (head, False)
+        assert blk.cfg_extension_revisions[CfgExtension("blk", outside)] is None

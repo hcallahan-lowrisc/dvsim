@@ -10,7 +10,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from dvsim.report.data import IPMeta, ToolMeta
+from dvsim.report.data import CfgExtensionMeta, IPMeta, ToolMeta
 from dvsim.sim_results import BucketedFailures
 
 __all__ = (
@@ -207,6 +207,9 @@ class SimFlowResults(BaseModel):
     percent: float
     """Percentage test pass rate."""
 
+    extensions: tuple[CfgExtensionMeta, ...] = ()
+    """The cfg extensions (--cfg-extend) named for this flow."""
+
     def summary(self) -> "SimFlowSummary":
         """Load results from JSON file.
 
@@ -246,6 +249,9 @@ class SimFlowSummary(BaseModel):
     """Total number of tests run."""
     percent: float
     """Percentage test pass rate."""
+
+    extensions: tuple[CfgExtensionMeta, ...] = ()
+    """The cfg extensions (--cfg-extend) named for this flow."""
 
     @staticmethod
     def load(path: Path) -> "SimFlowSummary":

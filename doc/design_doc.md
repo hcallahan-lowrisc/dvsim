@@ -165,6 +165,8 @@ The Hjson file at `PATH`, with its imports, is merged into the configuration who
 The usual merge rules apply: the extension's list entries follow the configuration's own, and a conflicting scalar is an error, so an extension changes a scalar with `overrides` (but not one that the configuration already overrides).
 In an extension, `{self_dir}` is still the directory of the configuration file that dvsim loaded, so the extension names its own files with `{file_dir}`.
 Several extensions apply in command-line order, and an extension whose `NAME` matches no loaded configuration is an error.
+The sim reports and JSON results list the extensions that each configuration merged, with the git revision of the checkout that holds each extension file: its `origin` (without credentials), its commit, and whether it was dirty, which includes the extension file itself not being tracked.
+Files that an extension imports from elsewhere are not recorded.
 
 ### Parser stage
 

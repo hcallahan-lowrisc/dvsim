@@ -4,6 +4,7 @@
 
 """Class describing simulation configuration object."""
 
+import dataclasses
 import fnmatch
 import random
 import sys
@@ -29,7 +30,9 @@ from dvsim.job.status import JobStatus
 from dvsim.logging import log
 from dvsim.modes import BuildMode, Mode, RunMode, find_mode
 from dvsim.regression import Regression
+from dvsim.report.data import GitRevisionMeta
 from dvsim.sim.data import (
+    CfgExtensionMeta,
     IPMeta,
     SimFlowResults,
     SimFlowSummary,
@@ -861,6 +864,19 @@ class SimCfg(FlowCfg):
         if failures.buckets:
             self.errors_seen = True
 
+        revisions = self.cfg_extension_revisions
+        extensions = [
+            CfgExtensionMeta(
+                path=str(ext.path),
+                revision=(
+                    GitRevisionMeta(**dataclasses.asdict(revisions[ext]))
+                    if revisions.get(ext)
+                    else None
+                ),
+            )
+            for ext in self.cfg_extensions
+        ]
+
         # --- Final result ---
         return SimFlowResults(
             block=block,
@@ -877,6 +893,7 @@ class SimCfg(FlowCfg):
             passed=total_passed,
             total=total_runs,
             percent=100.0 * total_passed / total_runs if total_runs else 0.0,
+            extensions=tuple(extensions),
         )
 
     def _fake_policy(self, job: JobSpec) -> JobStatus:

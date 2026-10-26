@@ -4,10 +4,11 @@
 
 """Git utility functions."""
 
+from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
-from git import Repo
+from git import GitCommandError, GitError, Repo
 
 from dvsim.logging import log
 
@@ -124,3 +125,45 @@ def git_https_url_with_commit(path: Path | None = None) -> str | None:
         url = "https://github.com/" + url.removeprefix(prefix)
 
     return f"{url}/tree/{commit}"
+
+
+@dataclass(frozen=True)
+class GitRevision:
+    """The revision of the git checkout that holds a file."""
+
+    origin: str | None
+    """URL of the checkout's ``origin`` remote (credentials stripped), or None."""
+    commit: str
+    """The commit checked out."""
+    commit_short: str
+    """The commit checked out, shortened."""
+    dirty: bool
+    """Whether the checkout had uncommitted changes, or doesn't track the file."""
+
+
+def git_revision(path: Path) -> GitRevision | None:
+    """Describe the checkout that holds path, for run metadata.
+
+    Returns None if path isn't in a git checkout or its revision can't be read.
+    The checkout counts as dirty if path itself isn't tracked (untracked or
+    ignored), as the commit doesn't hold it.
+    """
+    root = repo_root(path)
+    if root is None:
+        return None
+    try:
+        repo = Repo(root)
+        try:
+            repo.git.ls_files("--error-unmatch", str(path))
+            tracked = True
+        except GitCommandError:
+            tracked = False
+        return GitRevision(
+            origin=git_origin_url(path=root),
+            commit=git_commit_hash(path=root),
+            commit_short=git_commit_hash(path=root, short=True),
+            dirty=git_is_dirty(path=root) or not tracked,
+        )
+    except (GitError, ValueError) as err:
+        log.debug("Cannot read the git revision of %s: %s", root, err)
+        return None
