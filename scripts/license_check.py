@@ -34,6 +34,10 @@ IGNORE_SUFFIXES = [
     ".min.css",  # Vendored in CSS files
 ]
 
+IGNORE_GLOBS = [
+    "src/dvsim/schemas/*.json",  # JSON Schemas generated from the models; JSON has no comments
+]
+
 OPTIONAL_TRAILING_NEWLINE = [".nix", ".md"]
 
 
@@ -73,7 +77,11 @@ for f in p.stdout.decode(encoding="utf8").splitlines():
 
     path = Path(f)
 
-    if path.name in IGNORE_NAMES or "".join(path.suffixes) in IGNORE_SUFFIXES:
+    if (
+        path.name in IGNORE_NAMES
+        or "".join(path.suffixes) in IGNORE_SUFFIXES
+        or any(path.match(glob) for glob in IGNORE_GLOBS)
+    ):
         logger.info("Skipping ignored file: %s", path)
         continue
 

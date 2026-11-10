@@ -1,0 +1,312 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "CodeCoverageMetrics": {
+      "description": "CodeCoverage metrics.",
+      "properties": {
+        "block": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Block"
+        },
+        "line_statement": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Line Statement"
+        },
+        "branch": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Branch"
+        },
+        "condition_expression": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Condition Expression"
+        },
+        "toggle": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Toggle"
+        },
+        "fsm": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Fsm"
+        }
+      },
+      "required": [
+        "block",
+        "line_statement",
+        "branch",
+        "condition_expression",
+        "toggle",
+        "fsm"
+      ],
+      "title": "CodeCoverageMetrics",
+      "type": "object"
+    },
+    "CoverageMetrics": {
+      "description": "Coverage metrics.",
+      "properties": {
+        "code": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CodeCoverageMetrics"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "assertion": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Assertion"
+        },
+        "functional": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Functional"
+        }
+      },
+      "required": [
+        "code",
+        "assertion",
+        "functional"
+      ],
+      "title": "CoverageMetrics",
+      "type": "object"
+    },
+    "IPMeta": {
+      "description": "Meta data for an IP block.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "variant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant"
+        },
+        "commit": {
+          "title": "Commit",
+          "type": "string"
+        },
+        "commit_short": {
+          "title": "Commit Short",
+          "type": "string"
+        },
+        "dirty": {
+          "default": false,
+          "title": "Dirty",
+          "type": "boolean"
+        },
+        "branch": {
+          "title": "Branch",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Url"
+        },
+        "revision_info": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Revision Info"
+        }
+      },
+      "required": [
+        "name",
+        "commit",
+        "commit_short",
+        "branch",
+        "url",
+        "revision_info"
+      ],
+      "title": "IPMeta",
+      "type": "object"
+    },
+    "SimFlowSummary": {
+      "description": "Flow results summary.",
+      "properties": {
+        "block": {
+          "$ref": "#/$defs/IPMeta"
+        },
+        "coverage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CoverageMetrics"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "integer"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "percent": {
+          "title": "Percent",
+          "type": "number"
+        }
+      },
+      "required": [
+        "block",
+        "coverage",
+        "passed",
+        "total",
+        "percent"
+      ],
+      "title": "SimFlowSummary",
+      "type": "object"
+    }
+  },
+  "description": "Summary of results, written to `index.json`.",
+  "properties": {
+    "kind": {
+      "const": "dvsim.sim.summary",
+      "default": "dvsim.sim.summary",
+      "title": "Kind",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "top": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/IPMeta"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Version"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "title": "Timestamp",
+      "type": "string"
+    },
+    "build_seed": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Build Seed"
+    },
+    "flow_results": {
+      "additionalProperties": {
+        "$ref": "#/$defs/SimFlowSummary"
+      },
+      "title": "Flow Results",
+      "type": "object"
+    },
+    "report_path": {
+      "format": "path",
+      "title": "Report Path",
+      "type": "string"
+    }
+  },
+  "required": [
+    "top",
+    "version",
+    "timestamp",
+    "build_seed",
+    "flow_results",
+    "report_path"
+  ],
+  "title": "SimResultsSummary",
+  "type": "object"
+}

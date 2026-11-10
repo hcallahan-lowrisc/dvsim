@@ -1,0 +1,547 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "BucketedFailures": {
+      "description": "Bucketed failed runs.\n\nThe runs are grouped into failure buckets based on the error messages they\nreported. This makes it easier to see the classes of errors.",
+      "properties": {
+        "buckets": {
+          "additionalProperties": {
+            "items": {
+              "$ref": "#/$defs/JobFailureOverview"
+            },
+            "type": "array"
+          },
+          "title": "Buckets",
+          "type": "object"
+        }
+      },
+      "required": [
+        "buckets"
+      ],
+      "title": "BucketedFailures",
+      "type": "object"
+    },
+    "CodeCoverageMetrics": {
+      "description": "CodeCoverage metrics.",
+      "properties": {
+        "block": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Block"
+        },
+        "line_statement": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Line Statement"
+        },
+        "branch": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Branch"
+        },
+        "condition_expression": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Condition Expression"
+        },
+        "toggle": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Toggle"
+        },
+        "fsm": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Fsm"
+        }
+      },
+      "required": [
+        "block",
+        "line_statement",
+        "branch",
+        "condition_expression",
+        "toggle",
+        "fsm"
+      ],
+      "title": "CodeCoverageMetrics",
+      "type": "object"
+    },
+    "CoverageMetrics": {
+      "description": "Coverage metrics.",
+      "properties": {
+        "code": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CodeCoverageMetrics"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "assertion": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Assertion"
+        },
+        "functional": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Functional"
+        }
+      },
+      "required": [
+        "code",
+        "assertion",
+        "functional"
+      ],
+      "title": "CoverageMetrics",
+      "type": "object"
+    },
+    "IPMeta": {
+      "description": "Meta data for an IP block.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "variant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant"
+        },
+        "commit": {
+          "title": "Commit",
+          "type": "string"
+        },
+        "commit_short": {
+          "title": "Commit Short",
+          "type": "string"
+        },
+        "dirty": {
+          "default": false,
+          "title": "Dirty",
+          "type": "boolean"
+        },
+        "branch": {
+          "title": "Branch",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Url"
+        },
+        "revision_info": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Revision Info"
+        }
+      },
+      "required": [
+        "name",
+        "commit",
+        "commit_short",
+        "branch",
+        "url",
+        "revision_info"
+      ],
+      "title": "IPMeta",
+      "type": "object"
+    },
+    "JobFailureOverview": {
+      "description": "Overview of the Job failure.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "qual_name": {
+          "title": "Qual Name",
+          "type": "string"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Seed"
+        },
+        "line": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Line"
+        },
+        "log_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Log Path"
+        },
+        "log_context": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Log Context",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "qual_name",
+        "seed",
+        "line",
+        "log_path",
+        "log_context"
+      ],
+      "title": "JobFailureOverview",
+      "type": "object"
+    },
+    "TestResult": {
+      "description": "Test result.",
+      "properties": {
+        "max_time": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Max Time"
+        },
+        "sim_time": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Sim Time"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "integer"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "percent": {
+          "title": "Percent",
+          "type": "number"
+        }
+      },
+      "required": [
+        "max_time",
+        "sim_time",
+        "passed",
+        "total",
+        "percent"
+      ],
+      "title": "TestResult",
+      "type": "object"
+    },
+    "TestStage": {
+      "description": "Test stages.",
+      "properties": {
+        "testpoints": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Testpoint"
+          },
+          "title": "Testpoints",
+          "type": "object"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "integer"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "percent": {
+          "title": "Percent",
+          "type": "number"
+        }
+      },
+      "required": [
+        "testpoints",
+        "passed",
+        "total",
+        "percent"
+      ],
+      "title": "TestStage",
+      "type": "object"
+    },
+    "Testpoint": {
+      "description": "Testpoint.",
+      "properties": {
+        "tests": {
+          "additionalProperties": {
+            "$ref": "#/$defs/TestResult"
+          },
+          "title": "Tests",
+          "type": "object"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "integer"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "percent": {
+          "title": "Percent",
+          "type": "number"
+        }
+      },
+      "required": [
+        "tests",
+        "passed",
+        "total",
+        "percent"
+      ],
+      "title": "Testpoint",
+      "type": "object"
+    },
+    "ToolMeta": {
+      "description": "Meta data for an EDA tool.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "title": "ToolMeta",
+      "type": "object"
+    }
+  },
+  "description": "Flow results data, written to `<block>.json`.",
+  "properties": {
+    "kind": {
+      "const": "dvsim.sim.flow",
+      "default": "dvsim.sim.flow",
+      "title": "Kind",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "block": {
+      "$ref": "#/$defs/IPMeta"
+    },
+    "tool": {
+      "$ref": "#/$defs/ToolMeta"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "title": "Timestamp",
+      "type": "string"
+    },
+    "build_seed": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Build Seed"
+    },
+    "testplan_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Testplan Ref"
+    },
+    "stages": {
+      "additionalProperties": {
+        "$ref": "#/$defs/TestStage"
+      },
+      "title": "Stages",
+      "type": "object"
+    },
+    "coverage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CoverageMetrics"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "cov_report_page": {
+      "anyOf": [
+        {
+          "format": "path",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Cov Report Page"
+    },
+    "vplan_report_page": {
+      "anyOf": [
+        {
+          "format": "path",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Vplan Report Page"
+    },
+    "vplan_coverage": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Vplan Coverage"
+    },
+    "failed_jobs": {
+      "$ref": "#/$defs/BucketedFailures"
+    },
+    "passed": {
+      "title": "Passed",
+      "type": "integer"
+    },
+    "total": {
+      "title": "Total",
+      "type": "integer"
+    },
+    "percent": {
+      "title": "Percent",
+      "type": "number"
+    }
+  },
+  "required": [
+    "block",
+    "tool",
+    "timestamp",
+    "build_seed",
+    "testplan_ref",
+    "stages",
+    "coverage",
+    "cov_report_page",
+    "vplan_report_page",
+    "failed_jobs",
+    "passed",
+    "total",
+    "percent"
+  ],
+  "title": "SimFlowResults",
+  "type": "object"
+}

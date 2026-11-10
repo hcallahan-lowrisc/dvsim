@@ -1,0 +1,465 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "JobComputeMetrics": {
+      "description": "Instrumented compute resource metrics measured for a single scheduled job.",
+      "properties": {
+        "max_rss_bytes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Rss Bytes"
+        },
+        "avg_rss_bytes": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Avg Rss Bytes"
+        },
+        "avg_cpu_percent": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Avg Cpu Percent"
+        },
+        "num_samples": {
+          "default": 0,
+          "title": "Num Samples",
+          "type": "integer"
+        }
+      },
+      "title": "JobComputeMetrics",
+      "type": "object"
+    },
+    "JobInstrumentationMetadata": {
+      "description": "Instrumented metadata captured for a single scheduled job.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "job_type": {
+          "title": "Job Type",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "tool": {
+          "title": "Tool",
+          "type": "string"
+        },
+        "block": {
+          "title": "Block",
+          "type": "string"
+        },
+        "block_variant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Block Variant"
+        },
+        "backend": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Backend"
+        },
+        "dependencies": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dependencies",
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/JobStatus"
+        }
+      },
+      "required": [
+        "name",
+        "job_type",
+        "target",
+        "tool",
+        "block",
+        "dependencies",
+        "status"
+      ],
+      "title": "JobInstrumentationMetadata",
+      "type": "object"
+    },
+    "JobInstrumentationResults": {
+      "additionalProperties": true,
+      "description": "Aggregated instrumentation report data about a single scheduled job.",
+      "properties": {
+        "meta": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/JobInstrumentationMetadata"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "timing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/JobTimingMetrics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "compute": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/JobComputeMetrics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "JobInstrumentationResults",
+      "type": "object"
+    },
+    "JobStatus": {
+      "description": "Status of a Job.",
+      "enum": [
+        "Scheduled",
+        "Queued",
+        "Running",
+        "Passed",
+        "Failed",
+        "Killed"
+      ],
+      "title": "JobStatus",
+      "type": "string"
+    },
+    "JobTimingMetrics": {
+      "description": "Instrumented timing metrics measured for a single scheduled job.",
+      "properties": {
+        "start_time": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Time"
+        },
+        "end_time": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Time"
+        },
+        "duration": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The duration of the entire job run.",
+          "readOnly": true,
+          "title": "Duration"
+        }
+      },
+      "required": [
+        "duration"
+      ],
+      "title": "JobTimingMetrics",
+      "type": "object"
+    },
+    "SchedulerComputeMetrics": {
+      "description": "Instrumented compute resource metrics measured for the scheduler as a whole.",
+      "properties": {
+        "scheduler_max_rss_bytes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scheduler Max Rss Bytes"
+        },
+        "scheduler_avg_rss_bytes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scheduler Avg Rss Bytes"
+        },
+        "scheduler_vms_bytes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scheduler Vms Bytes"
+        },
+        "scheduler_cpu_percent": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scheduler Cpu Percent"
+        },
+        "scheduler_cpu_time": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scheduler Cpu Time"
+        },
+        "sys_max_rss_bytes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sys Max Rss Bytes"
+        },
+        "sys_avg_rss_bytes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sys Avg Rss Bytes"
+        },
+        "sys_swap_used_bytes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sys Swap Used Bytes"
+        },
+        "sys_cpu_percent": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sys Cpu Percent"
+        },
+        "sys_cpu_per_core": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sys Cpu Per Core"
+        },
+        "num_samples": {
+          "default": 0,
+          "title": "Num Samples",
+          "type": "integer"
+        }
+      },
+      "title": "SchedulerComputeMetrics",
+      "type": "object"
+    },
+    "SchedulerInstrumentationResults": {
+      "additionalProperties": true,
+      "description": "Aggregated instrumentation report data about the scheduler as a whole.",
+      "properties": {
+        "timing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SchedulerTimingMetrics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "compute": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SchedulerComputeMetrics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "SchedulerInstrumentationResults",
+      "type": "object"
+    },
+    "SchedulerTimingMetrics": {
+      "description": "Instrumented timing metrics measured for the scheduler as a whole.",
+      "properties": {
+        "start_time": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Time"
+        },
+        "end_time": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Time"
+        },
+        "duration": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The duration of the entire scheduler run.",
+          "readOnly": true,
+          "title": "Duration"
+        }
+      },
+      "required": [
+        "duration"
+      ],
+      "title": "SchedulerTimingMetrics",
+      "type": "object"
+    }
+  },
+  "description": "A complete aggregated instrumentation report with data about the scheduler and all jobs.\n\nWritten to `metrics.json`.",
+  "properties": {
+    "kind": {
+      "const": "dvsim.instrumentation",
+      "default": "dvsim.instrumentation",
+      "title": "Kind",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scheduler": {
+      "$ref": "#/$defs/SchedulerInstrumentationResults"
+    },
+    "jobs": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JobInstrumentationResults"
+      },
+      "title": "Jobs",
+      "type": "object"
+    }
+  },
+  "required": [
+    "scheduler"
+  ],
+  "title": "InstrumentationResults",
+  "type": "object"
+}

@@ -1,0 +1,330 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "IPMeta": {
+      "description": "Meta data for an IP block.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "variant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant"
+        },
+        "commit": {
+          "title": "Commit",
+          "type": "string"
+        },
+        "commit_short": {
+          "title": "Commit Short",
+          "type": "string"
+        },
+        "dirty": {
+          "default": false,
+          "title": "Dirty",
+          "type": "boolean"
+        },
+        "branch": {
+          "title": "Branch",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Url"
+        },
+        "revision_info": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Revision Info"
+        }
+      },
+      "required": [
+        "name",
+        "commit",
+        "commit_short",
+        "branch",
+        "url",
+        "revision_info"
+      ],
+      "title": "IPMeta",
+      "type": "object"
+    },
+    "JobSpec": {
+      "description": "Job specification.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "job_type": {
+          "title": "Job Type",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "backend": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Backend"
+        },
+        "resources": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Resources"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Seed"
+        },
+        "full_name": {
+          "title": "Full Name",
+          "type": "string"
+        },
+        "qual_name": {
+          "title": "Qual Name",
+          "type": "string"
+        },
+        "block": {
+          "$ref": "#/$defs/IPMeta"
+        },
+        "tool": {
+          "$ref": "#/$defs/ToolMeta"
+        },
+        "workspace_cfg": {
+          "$ref": "#/$defs/WorkspaceConfig"
+        },
+        "dependencies": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dependencies",
+          "type": "array"
+        },
+        "needs_all_dependencies_passing": {
+          "title": "Needs All Dependencies Passing",
+          "type": "boolean"
+        },
+        "weight": {
+          "title": "Weight",
+          "type": "integer"
+        },
+        "timeout_mins": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Timeout Mins"
+        },
+        "cmd": {
+          "title": "Cmd",
+          "type": "string"
+        },
+        "exports": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Exports",
+          "type": "object"
+        },
+        "dry_run": {
+          "title": "Dry Run",
+          "type": "boolean"
+        },
+        "interactive": {
+          "title": "Interactive",
+          "type": "boolean"
+        },
+        "odir": {
+          "format": "path",
+          "title": "Odir",
+          "type": "string"
+        },
+        "renew_odir": {
+          "title": "Renew Odir",
+          "type": "boolean"
+        },
+        "log_path": {
+          "format": "path",
+          "title": "Log Path",
+          "type": "string"
+        },
+        "pass_patterns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Pass Patterns",
+          "type": "array"
+        },
+        "fail_patterns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fail Patterns",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "job_type",
+        "target",
+        "backend",
+        "resources",
+        "seed",
+        "full_name",
+        "qual_name",
+        "block",
+        "tool",
+        "workspace_cfg",
+        "dependencies",
+        "needs_all_dependencies_passing",
+        "weight",
+        "timeout_mins",
+        "cmd",
+        "exports",
+        "dry_run",
+        "interactive",
+        "odir",
+        "renew_odir",
+        "log_path",
+        "pass_patterns",
+        "fail_patterns"
+      ],
+      "title": "JobSpec",
+      "type": "object"
+    },
+    "ToolMeta": {
+      "description": "Meta data for an EDA tool.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "title": "ToolMeta",
+      "type": "object"
+    },
+    "WorkspaceConfig": {
+      "description": "Workspace configuration.",
+      "properties": {
+        "timestamp": {
+          "title": "Timestamp",
+          "type": "string"
+        },
+        "project_root": {
+          "format": "path",
+          "title": "Project Root",
+          "type": "string"
+        },
+        "scratch_root": {
+          "format": "path",
+          "title": "Scratch Root",
+          "type": "string"
+        },
+        "scratch_path": {
+          "format": "path",
+          "title": "Scratch Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "timestamp",
+        "project_root",
+        "scratch_root",
+        "scratch_path"
+      ],
+      "title": "WorkspaceConfig",
+      "type": "object"
+    }
+  },
+  "description": "The jobs a run deploys, written to `deploy_<branch>_<timestamp>.json`.\n\nVersion 1.0.0 of this format was the list of jobs alone, with no marker.\nThe dump can't be loaded back: the jobs' callbacks aren't in it.",
+  "properties": {
+    "kind": {
+      "const": "dvsim.deploy",
+      "default": "dvsim.deploy",
+      "title": "Kind",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "2.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "jobs": {
+      "items": {
+        "$ref": "#/$defs/JobSpec"
+      },
+      "title": "Jobs",
+      "type": "array"
+    }
+  },
+  "required": [
+    "jobs"
+  ],
+  "title": "DeployDump",
+  "type": "object"
+}
