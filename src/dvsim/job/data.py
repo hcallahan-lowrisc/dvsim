@@ -11,15 +11,17 @@ capture the results of the job run.
 
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
-from typing import TypeAlias
+from typing import Literal, TypeAlias
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
+from dvsim.formats import MarkedFormat
 from dvsim.job.status import JobStatus
 from dvsim.report.data import IPMeta, ToolMeta
 
 __all__ = (
     "CompletedJobStatus",
+    "DeployDump",
     "JobSpec",
     "JobStatusInfo",
     "WorkspaceConfig",
@@ -120,10 +122,11 @@ class JobSpec(BaseModel):
     log_path: Path
     """Path for the job log file."""
 
-    # TODO: remove the need for these callables here
-    pre_launch: Callable[[], None]
+    # TODO: remove the need for these callables here. They can't be
+    # serialised, so they are left out of dumps.
+    pre_launch: Callable[[], None] = Field(exclude=True)
     """Callback function for pre-launch actions."""
-    post_finish: Callable[[JobStatus], None]
+    post_finish: Callable[[JobStatus], None] = Field(exclude=True)
     """Callback function for tidy up actions once the job is finished."""
 
     pass_patterns: Sequence[str]
@@ -141,6 +144,22 @@ class JobSpec(BaseModel):
     def timeout_secs(self) -> float | None:
         """Returns the timeout applied to the launched job, in seconds."""
         return None if self.timeout_mins is None else self.timeout_mins * 60
+
+
+class DeployDump(MarkedFormat):
+    """The jobs a run deploys, written to `deploy_<branch>_<timestamp>.json`.
+
+    Version 1.0.0 of this format was the list of jobs alone, with no marker.
+    The dump can't be loaded back: the jobs' callbacks aren't in it.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    kind: Literal["dvsim.deploy"] = "dvsim.deploy"
+    schema_version: str = "2.0.0"
+
+    jobs: Sequence[JobSpec]
+    """The jobs, sorted by full name."""
 
 
 class JobStatusInfo(BaseModel):

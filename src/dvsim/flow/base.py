@@ -5,7 +5,6 @@
 """Flow config base class."""
 
 import asyncio
-import json
 import os
 import pprint
 import sys
@@ -19,7 +18,7 @@ import hjson
 import dvsim.instrumentation.runtime as instrumentation
 from dvsim.flow.hjson import set_target_attribute
 from dvsim.fusesoc import rewrite_fusesoc_opts
-from dvsim.job.data import CompletedJobStatus, JobSpec, WorkspaceConfig
+from dvsim.job.data import CompletedJobStatus, DeployDump, JobSpec, WorkspaceConfig
 from dvsim.job.status import JobStatus
 from dvsim.logging import log
 from dvsim.scheduler.resources import UnknownResourcePolicy
@@ -491,23 +490,9 @@ class FlowCfg(ABC):
 
         if os.environ.get("DVSIM_DEPLOY_DUMP", "true"):
             filename = f"deploy_{self.branch}_{self.timestamp}.json"
-            (Path(self.scratch_root) / filename).write_text(
-                json.dumps(
-                    # Sort on full name to ensure consistent ordering
-                    sorted(
-                        [
-                            j.model_dump(
-                                # callback functions can't be serialised
-                                exclude={"pre_launch", "post_finish"},
-                                mode="json",
-                            )
-                            for j in jobs
-                        ],
-                        key=lambda j: j["full_name"],
-                    ),
-                    indent=2,
-                ),
-            )
+            # Sort on full name to ensure consistent ordering
+            dump = DeployDump(jobs=sorted(jobs, key=lambda j: j.full_name))
+            (Path(self.scratch_root) / filename).write_text(dump.model_dump_json(indent=2))
 
         backend = build_default_scheduler_backend(
             fake_policy=self._fake_policy,
