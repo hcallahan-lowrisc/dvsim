@@ -12,9 +12,11 @@ a newer DVSim that added a field still load in an older one.
 from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from dvsim.formats import MarkedFormat
 from dvsim.report.data import IPMeta, ToolMeta
 from dvsim.sim_results import BucketedFailures
 
@@ -174,10 +176,13 @@ class CoverageMetrics(BaseModel):
         return items
 
 
-class SimFlowResults(BaseModel):
-    """Flow results data."""
+class SimFlowResults(MarkedFormat):
+    """Flow results data, written to `<block>.json`."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
+
+    kind: Literal["dvsim.sim.flow"] = "dvsim.sim.flow"
+    schema_version: str = "1.0.0"
 
     block: IPMeta
     """IP block metadata."""
@@ -223,16 +228,6 @@ class SimFlowResults(BaseModel):
             json_data=self.model_dump_json(),
         )
 
-    @staticmethod
-    def load(path: Path) -> "SimFlowResults":
-        """Load results from JSON file.
-
-        Args:
-            path: to the json file to load.
-
-        """
-        return SimFlowResults.model_validate_json(path.read_text(), extra="ignore")
-
 
 class SimFlowSummary(BaseModel):
     """Flow results summary."""
@@ -263,10 +258,13 @@ class SimFlowSummary(BaseModel):
         return SimFlowSummary.model_validate_json(path.read_text(), extra="ignore")
 
 
-class SimResultsSummary(BaseModel):
-    """Summary of results."""
+class SimResultsSummary(MarkedFormat):
+    """Summary of results, written to `index.json`."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
+
+    kind: Literal["dvsim.sim.summary"] = "dvsim.sim.summary"
+    schema_version: str = "1.0.0"
 
     top: IPMeta | None
     """Meta data for the top level config."""
@@ -302,16 +300,3 @@ class SimResultsSummary(BaseModel):
             )
             for flow in self.flow_results
         }
-
-    @staticmethod
-    def load(path: Path) -> "SimResultsSummary":
-        """Load results from JSON file.
-
-        Args:
-            path: to the json file to load.
-
-        Returns:
-            The loaded ResultsSummary from JSON.
-
-        """
-        return SimResultsSummary.model_validate_json(path.read_text(), extra="ignore")

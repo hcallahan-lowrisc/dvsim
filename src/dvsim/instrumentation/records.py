@@ -4,7 +4,7 @@
 
 """DVSim scheduler instrumentation output (metric) record models."""
 
-from typing import Any
+from typing import Any, ClassVar, Literal
 
 from pydantic import (
     BaseModel,
@@ -13,7 +13,9 @@ from pydantic import (
     computed_field,
     model_validator,
 )
+from pydantic.config import ExtraValues
 
+from dvsim.formats import MarkedFormat
 from dvsim.job.status import JobStatus
 
 __all__ = (
@@ -186,10 +188,19 @@ class JobInstrumentationResults(BaseModel):
     compute: JobComputeMetrics | None = None
 
 
-class InstrumentationResults(BaseModel):
-    """A complete aggregated instrumentation report with data about the scheduler and all jobs."""
+class InstrumentationResults(MarkedFormat):
+    """A complete aggregated instrumentation report with data about the scheduler and all jobs.
+
+    Written to `metrics.json`.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
+
+    kind: Literal["dvsim.instrumentation"] = "dvsim.instrumentation"
+    schema_version: str = "1.0.0"
+
+    load_extra: ClassVar[ExtraValues | None] = None
+    """Keep the extra metrics that the "allow" models hold."""
 
     scheduler: SchedulerInstrumentationResults
     jobs: dict[str, JobInstrumentationResults] = Field(default_factory=dict)

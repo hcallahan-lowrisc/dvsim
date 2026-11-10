@@ -112,7 +112,7 @@ def instrumentation_report_gen(json_path: Path, output_dir: Path, profile: str |
     from dvsim.instrumentation.runtime import gen_html_report  # noqa: PLC0415
 
     render_profile = None if profile is None else RenderProfile(profile)
-    results = InstrumentationResults.model_validate_json(json_path.read_text(encoding="utf-8"))
+    results = InstrumentationResults.load(json_path)
     gen_html_report(results, profile=render_profile, outdir=output_dir)
 
 

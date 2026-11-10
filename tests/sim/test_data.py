@@ -5,6 +5,7 @@
 """Test the simulation results data models."""
 
 import json
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -12,6 +13,7 @@ import pytest
 from hamcrest import assert_that, equal_to
 from pydantic import ValidationError
 
+from dvsim.formats import MarkedFormat
 from dvsim.report.data import IPMeta, ToolMeta
 from dvsim.sim.data import SimFlowResults, SimFlowSummary, SimResultsSummary
 from dvsim.sim_results import BucketedFailures
@@ -114,3 +116,21 @@ class TestBuildingRejectsUnknownFields:
         data["added_later"] = 1
         with pytest.raises(ValidationError):
             SimFlowResults.model_validate(data)
+
+
+class TestMarker:
+    """The results files say which format they are."""
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("model", "kind"),
+        [(_flow_results, "dvsim.sim.flow"), (_summary, "dvsim.sim.summary")],
+    )
+    def test_marker(model: Callable[[], MarkedFormat], kind: str) -> None:
+        """index.json and <block>.json start with their kind and version 1.0.0."""
+        data = json.loads(model().model_dump_json())
+
+        assert_that(
+            list(data.items())[:2],
+            equal_to([("kind", kind), ("schema_version", "1.0.0")]),
+        )
