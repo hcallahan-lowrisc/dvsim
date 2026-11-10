@@ -87,6 +87,7 @@ You can access it [online at opentitan.org/book/](https://opentitan.org/book/).
 * [Testplanner tool](./doc/testplanner.md)
 * [Design document](./doc/design_doc.md)
 * [Glossary](./doc/glossary.md)
+* [Output formats: markers, schemas and compatibility](./doc/output_formats.md)
 
 ## How to contribute
 

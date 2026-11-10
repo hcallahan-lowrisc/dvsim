@@ -61,6 +61,10 @@ A **major** bump is triggered by either:
   by `compute:`. Existing configs must be updated.
   ```
 
+A breaking change to one of the JSON files DVSim writes for other tools, such
+as `index.json`, is a breaking change too: bump the format's major version and
+mark the commit as breaking. See [Output formats](./output_formats.md#changing-a-format).
+
 ### Squash commits
 
 If a PR is squash-merged, the resulting single commit must itself carry a
