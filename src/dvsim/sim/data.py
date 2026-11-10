@@ -2,7 +2,12 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Simulation data models."""
+"""Simulation data models.
+
+The models forbid unknown fields, so a typo when building results fails at
+once. The `load()` methods ignore unknown fields instead, so results written by
+a newer DVSim that added a field still load in an older one.
+"""
 
 from collections.abc import Mapping
 from datetime import datetime
@@ -226,7 +231,7 @@ class SimFlowResults(BaseModel):
             path: to the json file to load.
 
         """
-        return SimFlowResults.model_validate_json(path.read_text())
+        return SimFlowResults.model_validate_json(path.read_text(), extra="ignore")
 
 
 class SimFlowSummary(BaseModel):
@@ -255,7 +260,7 @@ class SimFlowSummary(BaseModel):
             path: to the json file to load.
 
         """
-        return SimFlowSummary.model_validate_json(path.read_text())
+        return SimFlowSummary.model_validate_json(path.read_text(), extra="ignore")
 
 
 class SimResultsSummary(BaseModel):
@@ -309,4 +314,4 @@ class SimResultsSummary(BaseModel):
             The loaded ResultsSummary from JSON.
 
         """
-        return SimResultsSummary.model_validate_json(path.read_text())
+        return SimResultsSummary.model_validate_json(path.read_text(), extra="ignore")

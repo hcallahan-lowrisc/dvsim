@@ -630,7 +630,7 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.10.9" },
     { name = "plotly", specifier = ">=6.7.0" },
     { name = "psutil", specifier = ">=7.2.2" },
-    { name = "pydantic", specifier = ">=2.9.2" },
+    { name = "pydantic", specifier = ">=2.12" },
     { name = "pyhamcrest", marker = "extra == 'test'", specifier = ">=2.1.0" },
     { name = "pyright", marker = "extra == 'typing'", specifier = ">=1.1.381" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.3.3" },
